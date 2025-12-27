@@ -3,8 +3,6 @@
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
-#include "../host/host_thread_check.h"
-
 extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
@@ -17,12 +15,6 @@ static const int32_t MAIN_WINDOW_ID = 0;
 
 // native.display.window_get_size() -> (w:int, h:int)
 static int l_window_get_size(lua_State *p_L) {
-	if (!ensure_main_thread("native.display.window_get_size")) {
-		lua_pushinteger(p_L, 0);
-		lua_pushinteger(p_L, 0);
-		return 2;
-	}
-
 	godot::DisplayServer *ds = godot::DisplayServer::get_singleton();
 	if (ds == nullptr) {
 		godot::UtilityFunctions::printerr("native.display.window_get_size: DisplayServer not available");
@@ -39,11 +31,6 @@ static int l_window_get_size(lua_State *p_L) {
 
 // native.display.window_set_size(w:int, h:int) -> rc:int
 static int l_window_set_size(lua_State *p_L) {
-	if (!ensure_main_thread("native.display.window_set_size")) {
-		lua_pushinteger(p_L, -1);
-		return 1;
-	}
-
 	// Check argument count
 	int argc = lua_gettop(p_L);
 	if (argc < 2) {

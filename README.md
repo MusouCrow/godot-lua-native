@@ -50,6 +50,11 @@
 
 Lua 侧模块统一使用 `native.*` 前缀（例如 `require("native.display")`）。
 
+## 绑定层原则
+
+- Lua 导出函数（binding）以“Lua 栈交互/参数校验/返回值组织”为主，尽量保持薄。
+- 业务逻辑（包括对 Godot API 的多步调用/分支/状态管理）优先下沉到可复用的 C++ 层，再由 binding 调用。
+
 ## License
 
 MIT, see `LICENSE`.
