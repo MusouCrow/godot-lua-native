@@ -1,0 +1,28 @@
+# Build directories
+build/
+cmake-build-*/
+
+# Compiled extension libraries
+*.dylib
+*.dll
+*.so
+*.a
+
+# Godot generated files
+.godot/
+*.uid
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log

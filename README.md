@@ -1,0 +1,53 @@
+## godot-lua-native
+
+一个基于 Godot 4.x GDExtension 的 Lua 5.5 接入实验工程：在 C++ 层按需实现导出给 Lua 的 C 风格接口，Lua 侧以同步、命令式方式驱动 Godot。
+
+## 目录结构（当前）
+
+- `src/`：扩展源码（GDExtension 入口、Lua runtime、线程检查等）
+- `lua/`：Lua 5.5 源码（作为静态库编译并链接进扩展）
+- `godot-cpp/`：Godot C++ 绑定
+- `test_project/`：最小 Godot 测试工程（headless 运行 Lua 用例）
+  - `test_project/addons/luagd/`：扩展产物与 `luagd.gdextension`
+  - `test_project/console.gd`：启动器（仅桥接启动与退出码）
+  - `test_project/tests/*.lua`：Lua 测试用例
+
+## 构建（CMake）
+
+依赖：
+- CMake ≥ 3.17
+- 支持 C++17 的编译器
+- `godot` 命令可用（用于运行 `test_project` 的集成测试）
+
+构建（默认 `template_debug`）：
+- `cmake -S . -B build -DGODOTCPP_TARGET=template_debug`
+- `cmake --build build -j`
+
+产物输出：
+- 扩展动态库会直接输出到 `test_project/addons/luagd/`
+- `test_project/addons/luagd/luagd.gdextension` 已按平台/架构枚举动态库文件名（例如 macOS `arm64`）
+
+## 运行集成测试（依赖 Godot）
+
+在仓库根目录执行：
+- `godot --headless --path test_project --script res://console.gd`
+
+约定：
+- `LuaHost.run_file("res://tests/main.lua")` 返回退出码：`0` 通过，非 `0` 失败
+- 失败信息通过 Godot 的 `printerr` 输出到命令行/日志
+
+## 在 Godot 中使用（最小示例）
+
+该工程的测试项目已内置扩展：`test_project/addons/luagd/`。
+
+GDScript 示例（调用宿主执行 Lua）：
+```gdscript
+var lua_host = Engine.get_singleton("LuaHost")
+var code = "return 0"
+var exit_code: int = lua_host.run_string(code)
+print("lua exit:", exit_code)
+```
+
+说明：
+- `run_file(path)` 使用 Godot `FileAccess` 读取脚本内容，通常可用 `res://`、`user://`，以及 Godot 允许的绝对路径。
+- Lua chunk 若 `return <int>`，该整数作为退出码；否则默认 `0`。
