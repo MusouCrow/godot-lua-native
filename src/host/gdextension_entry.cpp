@@ -18,13 +18,13 @@ void initialize_luagd_module(ModuleInitializationLevel p_level) {
 		return;
 	}
 
-	// Initialize Lua runtime
+	// 初始化 Lua 运行时
 	luagd::LuaRuntime::initialize();
 
-	// Register LuaHost class
+	// 注册 LuaHost 类
 	GDREGISTER_CLASS(luagd::LuaHost);
 
-	// Create and register singleton
+	// 创建并注册单例
 	lua_host_singleton = memnew(luagd::LuaHost);
 	Engine::get_singleton()->register_singleton("LuaHost", lua_host_singleton);
 }
@@ -34,14 +34,14 @@ void uninitialize_luagd_module(ModuleInitializationLevel p_level) {
 		return;
 	}
 
-	// Unregister singleton
+	// 注销单例
 	Engine::get_singleton()->unregister_singleton("LuaHost");
 	if (lua_host_singleton != nullptr) {
 		memdelete(lua_host_singleton);
 		lua_host_singleton = nullptr;
 	}
 
-	// Shutdown Lua runtime
+	// 关闭 Lua 运行时
 	luagd::LuaRuntime::shutdown();
 }
 

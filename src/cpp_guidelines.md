@@ -42,6 +42,16 @@
   - 例：`display_module.h` / `display_module.cpp`、`input_module.h` / `input_module.cpp`
 - 若某个领域需要拆分多个实现文件，使用清晰后缀：`<domain>_module_<topic>.cpp`（例如 `<topic>` 为 `window`、`cursor` 等），禁止使用无意义后缀 `2`、`new` 等。
 
+## 注释（硬规则）
+
+- 语言：注释统一使用中文；涉及 Godot/Lua C API 的专有名词可保留英文原词（如 `DisplayServer`、`lua_State`）。
+- 必须写“为什么/约束/契约”：
+  - 线程要求、返回码语义、参数范围、所有权规则等不变量
+  - 平台差异、headless 行为差异、Godot API 的已知限制
+- 避免“代码复述”注释：不要逐行解释显然代码（如“进入 if”“设置变量”）。
+- TODO 规则：如必须写 TODO，需带清晰条件/范围，避免长期悬挂的泛 TODO。
+- 推荐格式（便于检索与一致性）：`// 约束：...`、`// 返回：...`、`// 原因：...`、`// 注意：...`
+
 ## 格式与排版（不依赖 clang-format）
 
 > 本项目不强制 `clang-format`，因此以下规则必须人工遵守，确保 AI 输出一致。

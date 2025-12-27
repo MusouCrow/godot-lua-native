@@ -6,8 +6,8 @@
 
 namespace luagd {
 
-// LuaHost: Godot singleton class that provides Lua execution interface to GDScript.
-// All methods must be called from the main thread.
+// LuaHost：向 GDScript 提供 Lua 执行接口的 Godot 单例类。
+// 约束：所有方法必须在主线程调用。
 class LuaHost : public godot::Object {
 	GDCLASS(LuaHost, godot::Object);
 
@@ -15,16 +15,17 @@ public:
 	LuaHost();
 	~LuaHost();
 
-	// Execute a Lua file. Returns exit code (0 = success).
-	// p_path: Supports res://, user://, and absolute paths.
-	// See LuaRuntime::run_file() for details.
+	// 执行 Lua 文件。
+	// 返回：退出码（0 = 成功）。
+	// p_path: 支持 res://、user:// 和绝对路径，详见 LuaRuntime::run_file()。
 	int run_file(const godot::String &p_path);
 
-	// Execute a Lua string. Returns exit code (0 = success).
-	// p_code: Lua source code
+	// 执行 Lua 字符串。
+	// 返回：退出码（0 = 成功）。
+	// p_code: Lua 源代码
 	int run_string(const godot::String &p_code);
 
-	// Singleton access
+	// 单例访问
 	static LuaHost *get_singleton();
 
 protected:

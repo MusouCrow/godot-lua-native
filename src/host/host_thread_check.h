@@ -5,13 +5,13 @@
 
 namespace luagd {
 
-// Check if current execution is on the main thread.
-// Returns true if on main thread, false otherwise.
+// 检查当前是否在主线程执行。
+// 返回：在主线程返回 true，否则返回 false。
 bool is_main_thread();
 
-// Assert that current execution is on the main thread.
-// If not on main thread, prints error message and returns false.
-// p_context: function/module name for error message (e.g., "LuaHost.run_file")
+// 断言当前在主线程执行。
+// 如果不在主线程，打印错误消息并返回 false。
+// p_context: 用于错误消息的函数/模块名称（如 "LuaHost.run_file"）
 bool ensure_main_thread(const godot::String &p_context);
 
 } // namespace luagd

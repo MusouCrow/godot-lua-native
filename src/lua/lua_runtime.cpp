@@ -28,7 +28,7 @@ bool LuaRuntime::initialize() {
 
 	luaL_openlibs(state);
 
-	// Register native.display module
+	// 注册 native.display 模块
 	luaL_requiref(state, "native.display", luaopen_native_display, 0);
 	lua_pop(state, 1);
 
@@ -56,7 +56,7 @@ int LuaRuntime::run_file(const godot::String &p_path) {
 		return -1;
 	}
 
-	// Read file content using Godot's FileAccess (supports res:// paths)
+	// 通过 Godot 的 FileAccess 读取文件内容（支持 res:// 路径）
 	godot::Ref<godot::FileAccess> file = godot::FileAccess::open(p_path, godot::FileAccess::READ);
 	if (!file.is_valid()) {
 		godot::String err_msg = "LuaRuntime.run_file: cannot open file '";
@@ -69,11 +69,11 @@ int LuaRuntime::run_file(const godot::String &p_path) {
 	godot::String content = file->get_as_text();
 	file->close();
 
-	// Convert to UTF-8 for Lua
+	// 转换为 UTF-8 供 Lua 使用
 	godot::CharString utf8_content = content.utf8();
 	godot::CharString utf8_path = p_path.utf8();
 
-	// Load and execute
+	// 加载并执行
 	int load_result = luaL_loadbuffer(state, utf8_content.get_data(), utf8_content.length(), utf8_path.get_data());
 	if (load_result != LUA_OK) {
 		const char *err = lua_tostring(state, -1);
@@ -94,7 +94,7 @@ int LuaRuntime::run_file(const godot::String &p_path) {
 		return call_result;
 	}
 
-	// Get return value (exit code) if it's an integer
+	// 如果返回值是整数，则作为退出码
 	int exit_code = 0;
 	if (lua_isinteger(state, -1)) {
 		exit_code = (int)lua_tointeger(state, -1);
@@ -133,7 +133,7 @@ int LuaRuntime::run_string(const godot::String &p_code, const godot::String &p_c
 		return call_result;
 	}
 
-	// Get return value (exit code) if it's an integer
+	// 如果返回值是整数，则作为退出码
 	int exit_code = 0;
 	if (lua_isinteger(state, -1)) {
 		exit_code = (int)lua_tointeger(state, -1);

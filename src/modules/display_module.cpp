@@ -10,10 +10,11 @@ extern "C" {
 
 namespace luagd {
 
-// Internal: main window id (fixed)
+// 主窗口 ID（固定值）
 static const int32_t MAIN_WINDOW_ID = 0;
 
 // native.display.window_get_size() -> (w:int, h:int)
+// 返回：宽度和高度两个整数；DisplayServer 不可用时返回 (0, 0)。
 static int l_window_get_size(lua_State *p_L) {
 	godot::DisplayServer *ds = godot::DisplayServer::get_singleton();
 	if (ds == nullptr) {
@@ -30,8 +31,9 @@ static int l_window_get_size(lua_State *p_L) {
 }
 
 // native.display.window_set_size(w:int, h:int) -> rc:int
+// 返回：成功返回 0，失败返回 -1。
+// 约束：w 和 h 必须为正整数；全屏/最大化模式下无法设置尺寸。
 static int l_window_set_size(lua_State *p_L) {
-	// Check argument count
 	int argc = lua_gettop(p_L);
 	if (argc < 2) {
 		godot::UtilityFunctions::printerr("native.display.window_set_size: expected 2 arguments (w, h), got ", argc);
@@ -39,7 +41,6 @@ static int l_window_set_size(lua_State *p_L) {
 		return 1;
 	}
 
-	// Get and validate arguments
 	if (!lua_isinteger(p_L, 1) || !lua_isinteger(p_L, 2)) {
 		godot::UtilityFunctions::printerr("native.display.window_set_size: arguments must be integers");
 		lua_pushinteger(p_L, -1);
@@ -49,7 +50,6 @@ static int l_window_set_size(lua_State *p_L) {
 	int64_t w = lua_tointeger(p_L, 1);
 	int64_t h = lua_tointeger(p_L, 2);
 
-	// Validate dimensions
 	if (w <= 0 || h <= 0) {
 		godot::String err_msg = "native.display.window_set_size: invalid size (";
 		err_msg += godot::String::num_int64(w);
@@ -68,7 +68,7 @@ static int l_window_set_size(lua_State *p_L) {
 		return 1;
 	}
 
-	// Check window mode - cannot set size in fullscreen/maximized modes
+	// 约束：全屏/最大化模式下无法设置窗口尺寸
 	godot::DisplayServer::WindowMode mode = ds->window_get_mode(MAIN_WINDOW_ID);
 	if (mode == godot::DisplayServer::WINDOW_MODE_FULLSCREEN ||
 		mode == godot::DisplayServer::WINDOW_MODE_EXCLUSIVE_FULLSCREEN ||
@@ -95,7 +95,6 @@ static int l_window_set_size(lua_State *p_L) {
 		return 1;
 	}
 
-	// Set window size
 	godot::Vector2i size((int32_t)w, (int32_t)h);
 	ds->window_set_size(size, MAIN_WINDOW_ID);
 
