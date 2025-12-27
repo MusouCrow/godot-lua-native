@@ -3,6 +3,8 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#include "../modules/gd_display.h"
+
 extern "C" {
 #include <lua.h>
 #include <lualib.h>
@@ -25,6 +27,10 @@ bool LuaRuntime::initialize() {
 	}
 
 	luaL_openlibs(state);
+
+	// Register gd.display module
+	luaL_requiref(state, "gd.display", luaopen_gd_display, 0);
+	lua_pop(state, 1);
 
 	return true;
 }

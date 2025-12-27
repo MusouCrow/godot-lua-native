@@ -80,6 +80,7 @@ set(EXTENSION_SOURCES
 				src/host/thread_check.cpp
 				src/host/lua_host.cpp
 				src/host/extension_entry.cpp
+				src/modules/gd_display.cpp
 )
 
 add_library(${EXTENSION_NAME} SHARED ${EXTENSION_SOURCES})

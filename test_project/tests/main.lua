@@ -72,6 +72,9 @@ test_lua_basic()
 test_lua_functions()
 test_error_handling()
 
+-- Run module tests
+require("tests.test_display")
+
 -- Print summary and return exit code
 assert.print_summary()
 

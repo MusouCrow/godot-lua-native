@@ -31,9 +31,12 @@
 
 在仓库根目录执行：
 - `godot --headless --path test_project --script res://console.gd`
+- 指定测试入口脚本（位置参数，仅取第一个 user arg）：
+  - `godot --headless --path test_project --script res://console.gd -- res://tests/test_display.lua`
 
 约定：
-- `LuaHost.run_file("res://tests/main.lua")` 返回退出码：`0` 通过，非 `0` 失败
+- 未提供脚本参数时默认执行：`res://tests/main.lua`
+- `LuaHost.run_file(path)` 返回退出码：`0` 通过，非 `0` 失败
 - 失败信息通过 Godot 的 `printerr` 输出到命令行/日志
 
 ## 在 Godot 中使用（最小示例）
