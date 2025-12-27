@@ -15,9 +15,9 @@ namespace luagd {
 // Internal: main window id (fixed)
 static const int32_t MAIN_WINDOW_ID = 0;
 
-// gd.display.window_get_size() -> (w:int, h:int)
+// native.display.window_get_size() -> (w:int, h:int)
 static int l_window_get_size(lua_State *p_L) {
-	if (!ensure_main_thread("gd.display.window_get_size")) {
+	if (!ensure_main_thread("native.display.window_get_size")) {
 		lua_pushinteger(p_L, 0);
 		lua_pushinteger(p_L, 0);
 		return 2;
@@ -25,7 +25,7 @@ static int l_window_get_size(lua_State *p_L) {
 
 	godot::DisplayServer *ds = godot::DisplayServer::get_singleton();
 	if (ds == nullptr) {
-		godot::UtilityFunctions::printerr("gd.display.window_get_size: DisplayServer not available");
+		godot::UtilityFunctions::printerr("native.display.window_get_size: DisplayServer not available");
 		lua_pushinteger(p_L, 0);
 		lua_pushinteger(p_L, 0);
 		return 2;
@@ -37,9 +37,9 @@ static int l_window_get_size(lua_State *p_L) {
 	return 2;
 }
 
-// gd.display.window_set_size(w:int, h:int) -> rc:int
+// native.display.window_set_size(w:int, h:int) -> rc:int
 static int l_window_set_size(lua_State *p_L) {
-	if (!ensure_main_thread("gd.display.window_set_size")) {
+	if (!ensure_main_thread("native.display.window_set_size")) {
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
@@ -47,14 +47,14 @@ static int l_window_set_size(lua_State *p_L) {
 	// Check argument count
 	int argc = lua_gettop(p_L);
 	if (argc < 2) {
-		godot::UtilityFunctions::printerr("gd.display.window_set_size: expected 2 arguments (w, h), got ", argc);
+		godot::UtilityFunctions::printerr("native.display.window_set_size: expected 2 arguments (w, h), got ", argc);
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
 
 	// Get and validate arguments
 	if (!lua_isinteger(p_L, 1) || !lua_isinteger(p_L, 2)) {
-		godot::UtilityFunctions::printerr("gd.display.window_set_size: arguments must be integers");
+		godot::UtilityFunctions::printerr("native.display.window_set_size: arguments must be integers");
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
@@ -64,7 +64,7 @@ static int l_window_set_size(lua_State *p_L) {
 
 	// Validate dimensions
 	if (w <= 0 || h <= 0) {
-		godot::String err_msg = "gd.display.window_set_size: invalid size (";
+		godot::String err_msg = "native.display.window_set_size: invalid size (";
 		err_msg += godot::String::num_int64(w);
 		err_msg += ", ";
 		err_msg += godot::String::num_int64(h);
@@ -76,7 +76,7 @@ static int l_window_set_size(lua_State *p_L) {
 
 	godot::DisplayServer *ds = godot::DisplayServer::get_singleton();
 	if (ds == nullptr) {
-		godot::UtilityFunctions::printerr("gd.display.window_set_size: DisplayServer not available");
+		godot::UtilityFunctions::printerr("native.display.window_set_size: DisplayServer not available");
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
@@ -100,7 +100,7 @@ static int l_window_set_size(lua_State *p_L) {
 			default:
 				break;
 		}
-		godot::String err_msg = "gd.display.window_set_size: cannot set size in ";
+		godot::String err_msg = "native.display.window_set_size: cannot set size in ";
 		err_msg += mode_name;
 		err_msg += " mode";
 		godot::UtilityFunctions::printerr(err_msg);

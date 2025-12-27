@@ -1,7 +1,7 @@
--- test_display.lua: Tests for gd.display module
+-- test_display.lua: Tests for native.display module
 
 local assert = require("tests.assert")
-local display = require("gd.display")
+local display = require("native.display")
 
 local function test_window_get_size()
     assert.set_current_test("test_window_get_size")

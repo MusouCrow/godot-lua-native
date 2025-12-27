@@ -2,6 +2,13 @@
 
 一个基于 Godot 4.x GDExtension 的 Lua 5.5 接入实验工程：在 C++ 层按需实现导出给 Lua 的 C 风格接口，Lua 侧以同步、命令式方式驱动 Godot。
 
+## 文档范围
+
+- 本 README：面向“如何构建与运行测试”的快速上手说明。
+- `src/README.md`：面向实现者的开发范式与约束（模块划分、句柄/所有权、线程/错误模型等）。
+- `src/cpp_guidelines.md`：`src/**` 下的 C++ 代码规范（禁用 STL/异常/RTTI 等）。
+- `proposal.md`：文件级执行文档（模块落地步骤、测试工程约定等）。
+
 ## 目录结构（当前）
 
 - `src/`：扩展源码（GDExtension 入口、Lua runtime、线程检查等）
@@ -39,21 +46,9 @@
 - `LuaHost.run_file(path)` 返回退出码：`0` 通过，非 `0` 失败
 - 失败信息通过 Godot 的 `printerr` 输出到命令行/日志
 
-## 在 Godot 中使用（最小示例）
+## Lua 模块命名空间
 
-该工程的测试项目已内置扩展：`test_project/addons/luagd/`。
-
-GDScript 示例（调用宿主执行 Lua）：
-```gdscript
-var lua_host = Engine.get_singleton("LuaHost")
-var code = "return 0"
-var exit_code: int = lua_host.run_string(code)
-print("lua exit:", exit_code)
-```
-
-说明：
-- `run_file(path)` 使用 Godot `FileAccess` 读取脚本内容，通常可用 `res://`、`user://`，以及 Godot 允许的绝对路径。
-- Lua chunk 若 `return <int>`，该整数作为退出码；否则默认 `0`。
+Lua 侧模块统一使用 `native.*` 前缀（例如 `require("native.display")`）。
 
 ## License
 
