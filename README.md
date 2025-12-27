@@ -54,3 +54,7 @@ print("lua exit:", exit_code)
 说明：
 - `run_file(path)` 使用 Godot `FileAccess` 读取脚本内容，通常可用 `res://`、`user://`，以及 Godot 允许的绝对路径。
 - Lua chunk 若 `return <int>`，该整数作为退出码；否则默认 `0`。
+
+## License
+
+MIT, see `LICENSE`.
