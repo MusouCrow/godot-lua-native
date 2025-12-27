@@ -13,6 +13,8 @@ cmake-build-*/
 *.uid
 
 # IDE and editor files
+compile_commands.json
+.cache/
 .vscode/
 .idea/
 *.swp
@@ -26,3 +28,5 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.log
+
+proposal.md
