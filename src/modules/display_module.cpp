@@ -1,9 +1,9 @@
-#include "gd_display.h"
+#include "display_module.h"
 
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
-#include "../host/thread_check.h"
+#include "../host/host_thread_check.h"
 
 extern "C" {
 #include <lua.h>
@@ -122,7 +122,7 @@ static const luaL_Reg display_funcs[] = {
 	{nullptr, nullptr}
 };
 
-int luaopen_gd_display(lua_State *p_L) {
+int luaopen_native_display(lua_State *p_L) {
 	luaL_newlib(p_L, display_funcs);
 	return 1;
 }

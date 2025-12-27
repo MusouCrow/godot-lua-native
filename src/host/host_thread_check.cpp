@@ -1,4 +1,4 @@
-#include "thread_check.h"
+#include "host_thread_check.h"
 
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>

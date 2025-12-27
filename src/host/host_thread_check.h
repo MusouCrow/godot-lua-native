@@ -1,5 +1,5 @@
-#ifndef LUAGD_THREAD_CHECK_H
-#define LUAGD_THREAD_CHECK_H
+#ifndef LUAGD_HOST_THREAD_CHECK_H
+#define LUAGD_HOST_THREAD_CHECK_H
 
 #include <godot_cpp/variant/string.hpp>
 
@@ -16,4 +16,4 @@ bool ensure_main_thread(const godot::String &p_context);
 
 } // namespace luagd
 
-#endif // LUAGD_THREAD_CHECK_H
+#endif // LUAGD_HOST_THREAD_CHECK_H

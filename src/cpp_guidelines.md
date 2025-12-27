@@ -34,6 +34,14 @@
 - 函数参数：统一加 `p_` 前缀（避免与成员同名）
   - 例：`void set_size(int32_t p_width, int32_t p_height);`
 
+## 文件命名（硬规则）
+
+- 文件名使用 `snake_case`，并力求**全局可辨识**：即使脱离目录也能看出职责，避免 `common.*`、`utils.*`、`helper.*` 等泛化命名。
+- 文件名应与其所在目录职责相关联（目录提供“作用域”，文件名提供“领域/对象”）。
+- `src/modules/**` 下的模块文件命名统一为：`<domain>_module.{h,cpp}`
+  - 例：`display_module.h` / `display_module.cpp`、`input_module.h` / `input_module.cpp`
+- 若某个领域需要拆分多个实现文件，使用清晰后缀：`<domain>_module_<topic>.cpp`（例如 `<topic>` 为 `window`、`cursor` 等），禁止使用无意义后缀 `2`、`new` 等。
+
 ## 格式与排版（不依赖 clang-format）
 
 > 本项目不强制 `clang-format`，因此以下规则必须人工遵守，确保 AI 输出一致。

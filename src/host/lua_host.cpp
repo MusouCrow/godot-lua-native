@@ -2,7 +2,7 @@
 
 #include <godot_cpp/core/class_db.hpp>
 
-#include "thread_check.h"
+#include "host_thread_check.h"
 #include "../lua/lua_runtime.h"
 
 namespace luagd {

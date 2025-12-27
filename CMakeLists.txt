@@ -77,10 +77,10 @@ set(EXTENSION_NAME "luagd")
 
 set(EXTENSION_SOURCES
 				src/lua/lua_runtime.cpp
-				src/host/thread_check.cpp
+				src/host/host_thread_check.cpp
 				src/host/lua_host.cpp
-				src/host/extension_entry.cpp
-				src/modules/gd_display.cpp
+				src/host/gdextension_entry.cpp
+				src/modules/display_module.cpp
 )
 
 add_library(${EXTENSION_NAME} SHARED ${EXTENSION_SOURCES})
