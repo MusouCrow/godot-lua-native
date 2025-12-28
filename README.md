@@ -7,7 +7,6 @@
 - 本 README：面向“如何构建与运行测试”的快速上手说明。
 - `src/README.md`：面向实现者的开发范式与约束（模块划分、句柄/所有权、线程/错误模型等）。
 - `src/cpp_guidelines.md`：`src/**` 下的 C++ 代码规范（禁用 STL/异常/RTTI 等）。
-- `proposal.md`：文件级执行文档（模块落地步骤、测试工程约定等）。
 
 ## 目录结构（当前）
 
@@ -48,7 +47,7 @@
 
 ## Lua 模块命名空间
 
-Lua 侧模块统一使用 `native.*` 前缀（例如 `require("native.display")`）。
+Lua 侧模块统一使用扁平命名：`native_<domain>`（例如 `require("native_display")`）。
 
 ## 绑定层原则
 

@@ -28,8 +28,8 @@ bool LuaRuntime::initialize() {
 
 	luaL_openlibs(state);
 
-	// 注册 native.display 模块
-	luaL_requiref(state, "native.display", luaopen_native_display, 0);
+	// 注册 native_display 模块
+	luaL_requiref(state, "native_display", luaopen_native_display, 0);
 	lua_pop(state, 1);
 
 	return true;

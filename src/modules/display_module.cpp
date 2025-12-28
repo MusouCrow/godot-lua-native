@@ -13,12 +13,12 @@ namespace luagd {
 // 主窗口 ID（固定值）
 static const int32_t MAIN_WINDOW_ID = 0;
 
-// native.display.window_get_size() -> (w:int, h:int)
+// native_display.window_get_size() -> (w:int, h:int)
 // 返回：宽度和高度两个整数；DisplayServer 不可用时返回 (0, 0)。
 static int l_window_get_size(lua_State *p_L) {
 	godot::DisplayServer *ds = godot::DisplayServer::get_singleton();
 	if (ds == nullptr) {
-		godot::UtilityFunctions::printerr("native.display.window_get_size: DisplayServer not available");
+		godot::UtilityFunctions::printerr("native_display.window_get_size: DisplayServer not available");
 		lua_pushinteger(p_L, 0);
 		lua_pushinteger(p_L, 0);
 		return 2;
@@ -30,19 +30,19 @@ static int l_window_get_size(lua_State *p_L) {
 	return 2;
 }
 
-// native.display.window_set_size(w:int, h:int) -> rc:int
+// native_display.window_set_size(w:int, h:int) -> rc:int
 // 返回：成功返回 0，失败返回 -1。
 // 约束：w 和 h 必须为正整数；全屏/最大化模式下无法设置尺寸。
 static int l_window_set_size(lua_State *p_L) {
 	int argc = lua_gettop(p_L);
 	if (argc < 2) {
-		godot::UtilityFunctions::printerr("native.display.window_set_size: expected 2 arguments (w, h), got ", argc);
+		godot::UtilityFunctions::printerr("native_display.window_set_size: expected 2 arguments (w, h), got ", argc);
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
 
 	if (!lua_isinteger(p_L, 1) || !lua_isinteger(p_L, 2)) {
-		godot::UtilityFunctions::printerr("native.display.window_set_size: arguments must be integers");
+		godot::UtilityFunctions::printerr("native_display.window_set_size: arguments must be integers");
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
@@ -51,7 +51,7 @@ static int l_window_set_size(lua_State *p_L) {
 	int64_t h = lua_tointeger(p_L, 2);
 
 	if (w <= 0 || h <= 0) {
-		godot::String err_msg = "native.display.window_set_size: invalid size (";
+		godot::String err_msg = "native_display.window_set_size: invalid size (";
 		err_msg += godot::String::num_int64(w);
 		err_msg += ", ";
 		err_msg += godot::String::num_int64(h);
@@ -63,7 +63,7 @@ static int l_window_set_size(lua_State *p_L) {
 
 	godot::DisplayServer *ds = godot::DisplayServer::get_singleton();
 	if (ds == nullptr) {
-		godot::UtilityFunctions::printerr("native.display.window_set_size: DisplayServer not available");
+		godot::UtilityFunctions::printerr("native_display.window_set_size: DisplayServer not available");
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
@@ -87,7 +87,7 @@ static int l_window_set_size(lua_State *p_L) {
 			default:
 				break;
 		}
-		godot::String err_msg = "native.display.window_set_size: cannot set size in ";
+		godot::String err_msg = "native_display.window_set_size: cannot set size in ";
 		err_msg += mode_name;
 		err_msg += " mode";
 		godot::UtilityFunctions::printerr(err_msg);
