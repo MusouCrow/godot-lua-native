@@ -1,76 +1,82 @@
--- test_display.lua: Tests for native_display module
+-- path: tests/test_display.lua
+-- desc: native_display 模块测试
 
-local assert = require("tests.assert")
-local display = require("native_display")
+local _assert = require('tests.assert')
+local _display = require('native_display')
 
-local function test_window_get_size()
-	assert.set_current_test("test_window_get_size")
+-- Local Cache
+local type = type
+local tostring = tostring
+local print = print
 
-	local w, h = display.window_get_size()
+-- 测试获取窗口尺寸
+local function _test_window_get_size()
+	_assert.set_current_test('test_window_get_size')
 
-	-- Size should be integers
-	assert.assert_eq(type(w), "number", "width should be a number")
-	assert.assert_eq(type(h), "number", "height should be a number")
+	local w, h = _display.window_get_size()
 
-	-- Size should be positive (in headless mode, might be 0 or small)
-	-- Just check they are non-negative
-	assert.assert_true(w >= 0, "width should be >= 0")
-	assert.assert_true(h >= 0, "height should be >= 0")
+	-- 尺寸应为数字类型
+	_assert.assert_eq(type(w), 'number', 'width should be a number')
+	_assert.assert_eq(type(h), 'number', 'height should be a number')
 
-	print("test_window_get_size: OK")
+	-- 尺寸应非负（headless 模式下可能为 0）
+	_assert.assert_true(w >= 0, 'width should be >= 0')
+	_assert.assert_true(h >= 0, 'height should be >= 0')
+
+	print('test_window_get_size: OK')
 end
 
-local function test_window_set_size_valid()
-	assert.set_current_test("test_window_set_size_valid")
+-- 测试设置有效窗口尺寸
+local function _test_window_set_size_valid()
+	_assert.set_current_test('test_window_set_size_valid')
 
-	-- Get current size
-	local w, h = display.window_get_size()
+	-- 尝试设置尺寸（窗口模式下应成功）
+	-- 注意：headless 模式可能因模式限制而失败
+	local rc = _display.window_set_size(800, 600)
 
-	-- Try to set the same size (should succeed in windowed mode)
-	-- Note: In headless mode this might fail due to mode restrictions
-	local rc = display.window_set_size(800, 600)
+	-- 返回码应为数字
+	_assert.assert_eq(type(rc), 'number', 'return code should be a number')
 
-	-- rc should be an integer
-	assert.assert_eq(type(rc), "number", "return code should be a number")
-
-	-- Note: We don't assert rc == 0 because headless mode may not support window operations
-	print("test_window_set_size_valid: OK (rc=" .. tostring(rc) .. ")")
+	-- 不断言 rc == 0，因为 headless 模式可能不支持窗口操作
+	print('test_window_set_size_valid: OK (rc=' .. tostring(rc) .. ')')
 end
 
-local function test_window_set_size_invalid_zero()
-	assert.set_current_test("test_window_set_size_invalid_zero")
+-- 测试设置零尺寸（应失败）
+local function _test_window_set_size_invalid_zero()
+	_assert.set_current_test('test_window_set_size_invalid_zero')
 
-	-- Zero width should fail
-	local rc = display.window_set_size(0, 600)
-	assert.assert_ne(rc, 0, "zero width should return non-zero error code")
+	-- 零宽度应失败
+	local rc = _display.window_set_size(0, 600)
+	_assert.assert_ne(rc, 0, 'zero width should return non-zero error code')
 
-	-- Zero height should fail
-	rc = display.window_set_size(800, 0)
-	assert.assert_ne(rc, 0, "zero height should return non-zero error code")
+	-- 零高度应失败
+	rc = _display.window_set_size(800, 0)
+	_assert.assert_ne(rc, 0, 'zero height should return non-zero error code')
 
-	-- Both zero should fail
-	rc = display.window_set_size(0, 0)
-	assert.assert_ne(rc, 0, "zero size should return non-zero error code")
+	-- 双零应失败
+	rc = _display.window_set_size(0, 0)
+	_assert.assert_ne(rc, 0, 'zero size should return non-zero error code')
 
-	print("test_window_set_size_invalid_zero: OK")
+	print('test_window_set_size_invalid_zero: OK')
 end
 
-local function test_window_set_size_invalid_negative()
-	assert.set_current_test("test_window_set_size_invalid_negative")
+-- 测试设置负尺寸（应失败）
+local function _test_window_set_size_invalid_negative()
+	_assert.set_current_test('test_window_set_size_invalid_negative')
 
-	-- Negative width should fail
-	local rc = display.window_set_size(-1, 600)
-	assert.assert_ne(rc, 0, "negative width should return non-zero error code")
+	-- 负宽度应失败
+	local rc = _display.window_set_size(-1, 600)
+	_assert.assert_ne(rc, 0, 'negative width should return non-zero error code')
 
-	-- Negative height should fail
-	rc = display.window_set_size(800, -100)
-	assert.assert_ne(rc, 0, "negative height should return non-zero error code")
+	-- 负高度应失败
+	rc = _display.window_set_size(800, -100)
+	_assert.assert_ne(rc, 0, 'negative height should return non-zero error code')
 
-	print("test_window_set_size_invalid_negative: OK")
+	print('test_window_set_size_invalid_negative: OK')
 end
 
--- Run all tests
-test_window_get_size()
-test_window_set_size_valid()
-test_window_set_size_invalid_zero()
-test_window_set_size_invalid_negative()
+-- 执行所有测试
+_test_window_get_size()
+_test_window_set_size_valid()
+_test_window_set_size_invalid_zero()
+_test_window_set_size_invalid_negative()

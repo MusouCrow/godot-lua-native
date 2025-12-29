@@ -1,39 +1,42 @@
--- main.lua: Test entry point
--- Executes all test files and returns exit code (0 = success, non-zero = failure)
+-- path: tests/main.lua
+-- desc: 测试入口，执行所有测试文件并返回退出码（0 = 成功，非零 = 失败）
 
-local assert = require("tests.assert")
+local _assert = require('tests.assert')
 
-print("=== Lua Native Test Suite ===")
-print("")
+print('=== Lua Native Test Suite ===')
+print('')
 
--- Run basic sanity tests
-local function test_lua_basic()
-	assert.set_current_test("test_lua_basic")
+-- 基础 Lua 功能测试
+local function _test_lua_basic()
+	_assert.set_current_test('test_lua_basic')
 
-	-- Test basic Lua functionality
-	assert.assert_eq(2, 1 + 1, "basic arithmetic")
-	assert.assert_eq("hello", "hel" .. "lo", "string concatenation")
-	assert.assert_true(true, "boolean true")
-	assert.assert_false(false, "boolean false")
+	-- 基础算术
+	_assert.assert_eq(2, 1 + 1, 'basic arithmetic')
+	-- 字符串拼接
+	_assert.assert_eq('hello', 'hel' .. 'lo', 'string concatenation')
+	-- 布尔值
+	_assert.assert_true(true, 'boolean true')
+	_assert.assert_false(false, 'boolean false')
 
-	-- Test table operations
+	-- Table 操作
 	local t = { a = 1, b = 2 }
-	assert.assert_eq(1, t.a, "table access")
-	assert.assert_eq(2, t.b, "table access")
+	_assert.assert_eq(1, t.a, 'table access')
+	_assert.assert_eq(2, t.b, 'table access')
 
-	print("test_lua_basic: OK")
+	print('test_lua_basic: OK')
 end
 
-local function test_lua_functions()
-	assert.set_current_test("test_lua_functions")
+-- 函数与闭包测试
+local function _test_lua_functions()
+	_assert.set_current_test('test_lua_functions')
 
-	-- Test function definition and call
+	-- 函数定义与调用
 	local function add(a, b)
 		return a + b
 	end
-	assert.assert_eq(5, add(2, 3), "function call")
+	_assert.assert_eq(5, add(2, 3), 'function call')
 
-	-- Test closures
+	-- 闭包测试
 	local function make_counter()
 		local count = 0
 		return function()
@@ -42,41 +45,42 @@ local function test_lua_functions()
 		end
 	end
 	local counter = make_counter()
-	assert.assert_eq(1, counter(), "closure first call")
-	assert.assert_eq(2, counter(), "closure second call")
+	_assert.assert_eq(1, counter(), 'closure first call')
+	_assert.assert_eq(2, counter(), 'closure second call')
 
-	print("test_lua_functions: OK")
+	print('test_lua_functions: OK')
 end
 
-local function test_error_handling()
-	assert.set_current_test("test_error_handling")
+-- 错误处理测试
+local function _test_error_handling()
+	_assert.set_current_test('test_error_handling')
 
-	-- Test pcall with success
+	-- pcall 成功场景
 	local ok, result = pcall(function() return 42 end)
-	assert.assert_true(ok, "pcall success")
-	assert.assert_eq(42, result, "pcall result")
+	_assert.assert_true(ok, 'pcall success')
+	_assert.assert_eq(42, result, 'pcall result')
 
-	-- Test pcall with error
-	local ok2, err = pcall(function() error("test error") end)
-	assert.assert_false(ok2, "pcall catches error")
-	assert.assert_not_nil(err, "pcall returns error message")
+	-- pcall 捕获错误场景
+	local ok2, err = pcall(function() error('test error') end)
+	_assert.assert_false(ok2, 'pcall catches error')
+	_assert.assert_not_nil(err, 'pcall returns error message')
 
-	print("test_error_handling: OK")
+	print('test_error_handling: OK')
 end
 
--- Run all tests
-print("Running tests...")
-print("")
+-- 执行所有测试
+print('Running tests...')
+print('')
 
-test_lua_basic()
-test_lua_functions()
-test_error_handling()
+_test_lua_basic()
+_test_lua_functions()
+_test_error_handling()
 
--- Run module tests
-require("tests.test_display")
+-- 执行模块测试
+require('tests.test_display')
 
--- Print summary and return exit code
-assert.print_summary()
+-- 打印摘要并返回退出码
+_assert.print_summary()
 
-local _, fail_count = assert.get_stats()
+local _, fail_count = _assert.get_stats()
 return fail_count
