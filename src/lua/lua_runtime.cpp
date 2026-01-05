@@ -4,6 +4,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include "../modules/display_module.h"
+#include "../modules/core_module.h"
 
 extern "C" {
 #include <lua.h>
@@ -27,6 +28,10 @@ bool LuaRuntime::initialize() {
 	}
 
 	luaL_openlibs(state);
+
+	// 注册 native_core 模块
+	luaL_requiref(state, "native_core", luaopen_native_core, 0);
+	lua_pop(state, 1);
 
 	// 注册 native_display 模块
 	luaL_requiref(state, "native_display", luaopen_native_display, 0);

@@ -25,6 +25,15 @@ public:
 	// p_code: Lua 源代码
 	int run_string(const godot::String &p_code);
 
+	// 调用 Lua 的 update 回调。
+	// 返回：成功返回 0，失败返回非零值。
+	// p_delta: 距上一物理帧的秒数。
+	int tick(double p_delta);
+
+	// 调用 Lua 的 shutdown 回调。
+	// 错误只打印，不影响退出流程。
+	void shutdown();
+
 	// 单例访问
 	static LuaHost *get_singleton();
 
