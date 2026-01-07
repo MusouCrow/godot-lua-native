@@ -148,6 +148,30 @@ static int l_get_vector(lua_State *p_L) {
 	return 2;
 }
 
+// native_input.vibrate(weak, strong, duration) -> void
+// 触发手柄震动。
+// weak: 弱马达强度 (0.0~1.0)
+// strong: 强马达强度 (0.0~1.0)
+// duration: 持续秒数
+static int l_vibrate(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 3) {
+		godot::UtilityFunctions::printerr("native_input.vibrate: expected 3 arguments (weak, strong, duration), got ", argc);
+		return 0;
+	}
+
+	double weak = luaL_checknumber(p_L, 1);
+	double strong = luaL_checknumber(p_L, 2);
+	double duration = luaL_checknumber(p_L, 3);
+
+	godot::Input *input = godot::Input::get_singleton();
+	if (input != nullptr) {
+		input->start_joy_vibration(0, weak, strong, duration);
+	}
+
+	return 0;
+}
+
 static const luaL_Reg input_funcs[] = {
 	{"bind_input", l_bind_input},
 	{"is_pressed", l_is_pressed},
@@ -156,6 +180,7 @@ static const luaL_Reg input_funcs[] = {
 	{"get_strength", l_get_strength},
 	{"get_axis", l_get_axis},
 	{"get_vector", l_get_vector},
+	{"vibrate", l_vibrate},
 	{nullptr, nullptr}
 };
 

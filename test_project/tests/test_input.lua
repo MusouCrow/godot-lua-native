@@ -107,6 +107,18 @@ local function _test_nonexistent_action_defaults()
 	print('test_nonexistent_action_defaults: OK')
 end
 
+-- 测试 vibrate 调用不报错
+local function _test_vibrate_no_error()
+	_assert.set_current_test('test_vibrate_no_error')
+
+	-- 调用应该不报错（即使没有手柄连接）
+	_input.vibrate(0.0, 0.0, 0.0)
+	_input.vibrate(0.5, 0.5, 0.1)
+	_input.vibrate(1.0, 1.0, 0.0)
+
+	print('test_vibrate_no_error: OK')
+end
+
 -- 执行所有测试
 _test_is_pressed_type()
 _test_is_hold_type()
@@ -116,3 +128,4 @@ _test_get_axis_type()
 _test_get_vector_type()
 _test_bind_input_accepts_function()
 _test_nonexistent_action_defaults()
+_test_vibrate_no_error()
