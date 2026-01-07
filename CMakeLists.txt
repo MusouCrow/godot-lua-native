@@ -82,6 +82,7 @@ set(EXTENSION_SOURCES
 				src/host/gdextension_entry.cpp
 				src/modules/display_module.cpp
 				src/modules/core_module.cpp
+				src/modules/input_module.cpp
 )
 
 add_library(${EXTENSION_NAME} SHARED ${EXTENSION_SOURCES})

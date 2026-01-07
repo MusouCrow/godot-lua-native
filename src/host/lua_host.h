@@ -2,7 +2,10 @@
 #define LUAGD_LUA_HOST_H
 
 #include <godot_cpp/classes/object.hpp>
+#include <godot_cpp/classes/ref.hpp>
 #include <godot_cpp/variant/string.hpp>
+
+namespace godot { class InputEvent; }
 
 namespace luagd {
 
@@ -33,6 +36,10 @@ public:
 	// 调用 Lua 的 shutdown 回调。
 	// 错误只打印，不影响退出流程。
 	void shutdown();
+
+	// 将输入事件传递给 Lua。
+	// p_event: Godot InputEvent。
+	void input(const godot::Ref<godot::InputEvent> &p_event);
 
 	// 单例访问
 	static LuaHost *get_singleton();

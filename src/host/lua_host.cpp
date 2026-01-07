@@ -5,6 +5,9 @@
 #include "host_thread_check.h"
 #include "../lua/lua_runtime.h"
 #include "../modules/core_module.h"
+#include "../modules/input_module.h"
+
+#include <godot_cpp/classes/input_event.hpp>
 
 namespace luagd {
 
@@ -27,6 +30,7 @@ void LuaHost::_bind_methods() {
 	godot::ClassDB::bind_method(godot::D_METHOD("run_string", "code"), &LuaHost::run_string);
 	godot::ClassDB::bind_method(godot::D_METHOD("tick", "delta"), &LuaHost::tick);
 	godot::ClassDB::bind_method(godot::D_METHOD("shutdown"), &LuaHost::shutdown);
+	godot::ClassDB::bind_method(godot::D_METHOD("input", "event"), &LuaHost::input);
 }
 
 int LuaHost::run_file(const godot::String &p_path) {
@@ -63,6 +67,17 @@ void LuaHost::shutdown() {
 		return;
 	}
 	core_call_shutdown(L);
+}
+
+void LuaHost::input(const godot::Ref<godot::InputEvent> &p_event) {
+	if (!ensure_main_thread("LuaHost.input")) {
+		return;
+	}
+	lua_State *L = LuaRuntime::get_state();
+	if (L == nullptr || p_event.is_null()) {
+		return;
+	}
+	input_dispatch_event(L, p_event.ptr());
 }
 
 } // namespace luagd
