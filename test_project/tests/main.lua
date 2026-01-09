@@ -77,6 +77,7 @@ _test_lua_functions()
 _test_error_handling()
 
 -- 执行模块测试
+require('tests.test_core')
 require('tests.test_display')
 require('tests.test_input')
 require('tests.test_system')

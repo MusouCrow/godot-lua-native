@@ -15,4 +15,9 @@ function M.bind_update(func) end
 ---@param func fun(): void 无参回调函数
 function M.bind_shutdown(func) end
 
+--- native_core.quit(exit_code) -> void
+--- 请求优雅退出。
+---@param exit_code? integer 退出码，默认 0
+function M.quit(exit_code) end
+
 return M

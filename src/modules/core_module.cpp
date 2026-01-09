@@ -1,6 +1,8 @@
 #include "core_module.h"
 
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/scene_tree.hpp>
 
 extern "C" {
 #include <lua.h>
@@ -57,9 +59,25 @@ static int l_bind_shutdown(lua_State *p_L) {
 	return 0;
 }
 
+// native_core.quit(exit_code) -> void
+// 请求优雅退出。
+// exit_code: 退出码，默认 0。
+static int l_quit(lua_State *p_L) {
+	int exit_code = (int)luaL_optinteger(p_L, 1, 0);
+
+	godot::SceneTree *tree = godot::Object::cast_to<godot::SceneTree>(
+		godot::Engine::get_singleton()->get_main_loop()
+	);
+	if (tree) {
+		tree->quit(exit_code);
+	}
+	return 0;
+}
+
 static const luaL_Reg core_funcs[] = {
 	{"bind_update", l_bind_update},
 	{"bind_shutdown", l_bind_shutdown},
+	{"quit", l_quit},
 	{nullptr, nullptr}
 };
 
