@@ -79,6 +79,7 @@ _test_error_handling()
 -- 执行模块测试
 require('tests.test_display')
 require('tests.test_input')
+require('tests.test_system')
 
 -- 打印摘要并返回退出码
 _assert.print_summary()

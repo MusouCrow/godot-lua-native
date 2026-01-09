@@ -83,6 +83,7 @@ set(EXTENSION_SOURCES
 				src/modules/display_module.cpp
 				src/modules/core_module.cpp
 				src/modules/input_module.cpp
+				src/modules/system_module.cpp
 )
 
 add_library(${EXTENSION_NAME} SHARED ${EXTENSION_SOURCES})

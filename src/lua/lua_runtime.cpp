@@ -6,6 +6,7 @@
 #include "../modules/display_module.h"
 #include "../modules/core_module.h"
 #include "../modules/input_module.h"
+#include "../modules/system_module.h"
 
 extern "C" {
 #include <lua.h>
@@ -40,6 +41,10 @@ bool LuaRuntime::initialize() {
 
 	// 注册 native_input 模块
 	luaL_requiref(state, "native_input", luaopen_native_input, 0);
+	lua_pop(state, 1);
+
+	// 注册 native_system 模块
+	luaL_requiref(state, "native_system", luaopen_native_system, 0);
 	lua_pop(state, 1);
 
 	return true;
