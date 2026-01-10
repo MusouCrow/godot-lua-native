@@ -84,6 +84,7 @@ set(EXTENSION_SOURCES
 				src/modules/core_module.cpp
 				src/modules/input_module.cpp
 				src/modules/system_module.cpp
+				src/modules/audio_module.cpp
 )
 
 add_library(${EXTENSION_NAME} SHARED ${EXTENSION_SOURCES})
@@ -107,7 +108,7 @@ set_target_properties(${EXTENSION_NAME} PROPERTIES
 )
 
 # Output directory
-set(OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_project/addons/luagd)
+set(OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../project/addons/luagd)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	# macOS: output with .dylib suffix

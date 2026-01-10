@@ -48,7 +48,7 @@ cmake ..
 make
 ```
 
-The compiled library will be placed in `test_project/addons/luagd/`.
+The compiled library will be placed in `../project/addons/luagd/`.
 
 ## Quick Start / 快速开始
 
@@ -117,11 +117,10 @@ godot-lua-native/
 ├── src/
 │   ├── host/           # GDExtension entry and LuaHost singleton
 │   ├── lua/            # Lua runtime wrapper
-│   └── modules/        # Native modules (core, input, display)
+│   └── modules/        # Native modules (core, input, display, audio)
 ├── lua/                # Lua 5.5.0 source code
 ├── godot-cpp/          # Godot C++ bindings (submodule)
-├── api/                # Lua API stubs for IDE support
-└── test_project/       # Example Godot project
+└── api/                # Lua API stubs for IDE support
 ```
 
 ## Development / 开发
@@ -129,7 +128,8 @@ godot-lua-native/
 ### Run Tests / 运行测试
 
 ```bash
-godot --headless --path test_project --script res://console.gd -- tests/main.lua
+# From the repo root directory
+godot --headless --path project -- tests/native/test_native_core.lua
 ```
 
 ### API Stubs / API 存根
