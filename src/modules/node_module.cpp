@@ -249,6 +249,28 @@ static int l_look_at(lua_State *p_L) {
 	return 0;
 }
 
+// get_forward(id, is_global) -> x, y, z
+// 获取节点的前向向量（归一化）。
+// is_global: true 为世界空间前向，false 为局部前向（默认）。
+static int l_get_forward(lua_State *p_L) {
+	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	bool is_global = lua_toboolean(p_L, 2);
+
+	NodeRecord *rec = get_node(id, "get_forward");
+	if (rec == nullptr) {
+		return 0;
+	}
+
+	godot::Basis basis = is_global ? rec->node->get_global_transform().basis
+	                                : rec->node->get_transform().basis;
+	// Godot 中 -Z 是前向方向，basis 内部按行存储，需用 get_column(2) 获取 Z 轴
+	godot::Vector3 forward = -basis.get_column(2);
+	lua_pushnumber(p_L, forward.x);
+	lua_pushnumber(p_L, forward.y);
+	lua_pushnumber(p_L, forward.z);
+	return 3;
+}
+
 // ============================================================================
 // 移动
 // ============================================================================
@@ -429,6 +451,7 @@ static const luaL_Reg node_funcs[] = {
 	{"set_rotation", l_set_rotation},
 	{"get_rotation", l_get_rotation},
 	{"look_at", l_look_at},
+	{"get_forward", l_get_forward},
 
 	// 移动
 	{"move_and_slide", l_move_and_slide},

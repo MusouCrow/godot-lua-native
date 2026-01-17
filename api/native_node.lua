@@ -79,6 +79,15 @@ function M.get_rotation(id, is_global) end
 ---@param target_z number 目标 Z 坐标
 function M.look_at(id, target_x, target_y, target_z) end
 
+--- native_node.get_forward(id, is_global) -> number, number, number
+--- 获取节点的前向向量（归一化）。
+---@param id integer 节点句柄
+---@param is_global? boolean true 为世界空间前向，false 为局部前向（默认 false）
+---@return number x 前向向量 X 分量
+---@return number y 前向向量 Y 分量
+---@return number z 前向向量 Z 分量
+function M.get_forward(id, is_global) end
+
 -- ============================================================================
 -- 移动
 -- ============================================================================
