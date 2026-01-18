@@ -6,6 +6,8 @@
 #include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/window.hpp>
+#include <godot_cpp/classes/resource_loader.hpp>
+#include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/variant/node_path.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -23,16 +25,24 @@ enum NodeType {
 	NODE_TYPE_CHARACTER_BODY3D = 1
 };
 
+// 节点所有权类型
+enum NodeOwnership {
+	NODE_OWNERSHIP_REFERENCE = 0,  // 引用，destroy 时不销毁
+	NODE_OWNERSHIP_OWNED = 1       // 创建，destroy 时销毁
+};
+
 // 节点记录
 struct NodeRecord {
 	int32_t id;
 	godot::Node3D *node;  // 改为 Node3D*，支持所有 3D 节点
 	NodeType type;        // 节点类型
+	NodeOwnership ownership;  // 所有权类型
 };
 
 // 模块级静态数据
 static godot::HashMap<int32_t, NodeRecord> nodes;
 static int32_t next_id = 1;
+static godot::Node *root_node = nullptr;  // 根节点指针
 
 // 获取节点记录，不存在时打印错误
 static NodeRecord *get_node(int32_t p_id, const char *p_func_name) {
@@ -106,6 +116,7 @@ static int l_get_by_path(lua_State *p_L) {
 	NodeRecord rec;
 	rec.id = next_id++;
 	rec.node = node3d;
+	rec.ownership = NODE_OWNERSHIP_REFERENCE;  // 标记为引用
 
 	// 检测是否为 CharacterBody3D
 	godot::CharacterBody3D *body = godot::Object::cast_to<godot::CharacterBody3D>(found_node);
@@ -117,10 +128,126 @@ static int l_get_by_path(lua_State *p_L) {
 	return 1;
 }
 
-// release(id) -> void
-// 释放节点引用。
-// 注意：不会销毁节点本身，仅释放模块内的引用。
-static int l_release(lua_State *p_L) {
+// set_root(path) -> bool
+// 设置根节点路径，后续创建的节点将挂载到此节点下。
+// 路径格式如 "/root/pre_entry/pre_scene/root"。
+// 返回是否设置成功。
+static int l_set_root(lua_State *p_L) {
+	const char *path = luaL_checkstring(p_L, 1);
+
+	godot::SceneTree *tree = godot::Object::cast_to<godot::SceneTree>(
+		godot::Engine::get_singleton()->get_main_loop()
+	);
+	if (tree == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.set_root: SceneTree not available");
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Window *root_window = tree->get_root();
+	if (root_window == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.set_root: Scene root not available");
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Node *window_node = godot::Object::cast_to<godot::Node>(root_window);
+	godot::NodePath node_path((godot::String(path)));
+	godot::Node *found_node = window_node->get_node<godot::Node>(node_path);
+
+	if (found_node == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.set_root: node not found: ", path);
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	root_node = found_node;
+	lua_pushboolean(p_L, true);
+	return 1;
+}
+
+// instantiate(scene_path) -> id
+// 从场景资源路径加载并实例化节点，挂载到根节点下。
+// scene_path: 资源路径，如 "res://assets/char/sm_char_proto.glb"
+// 返回节点 id，失败返回 -1。
+// 注意：必须先调用 set_root 设置根节点。
+static int l_instantiate(lua_State *p_L) {
+	const char *scene_path = luaL_checkstring(p_L, 1);
+
+	// 检查根节点是否已设置
+	if (root_node == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.instantiate: root not set, call set_root first");
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	// 检查根节点是否仍有效
+	if (!root_node->is_inside_tree()) {
+		godot::UtilityFunctions::printerr("native_node.instantiate: root node is no longer valid");
+		root_node = nullptr;
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	// 加载场景资源
+	godot::Ref<godot::Resource> resource = godot::ResourceLoader::get_singleton()->load(
+		godot::String(scene_path)
+	);
+	if (resource.is_null()) {
+		godot::UtilityFunctions::printerr("native_node.instantiate: failed to load resource: ", scene_path);
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	// 转换为 PackedScene
+	godot::PackedScene *packed_scene = godot::Object::cast_to<godot::PackedScene>(resource.ptr());
+	if (packed_scene == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.instantiate: resource is not a PackedScene: ", scene_path);
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	// 实例化场景
+	godot::Node *instance = packed_scene->instantiate();
+	if (instance == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.instantiate: failed to instantiate scene: ", scene_path);
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	// 检查是否为 Node3D
+	godot::Node3D *node3d = godot::Object::cast_to<godot::Node3D>(instance);
+	if (node3d == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.instantiate: instantiated node is not a Node3D: ", scene_path);
+		instance->queue_free();  // 清理
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	// 添加到根节点
+	root_node->add_child(instance);
+
+	// 创建记录
+	NodeRecord rec;
+	rec.id = next_id++;
+	rec.node = node3d;
+	rec.ownership = NODE_OWNERSHIP_OWNED;  // 标记为创建的节点
+
+	// 检测节点类型
+	godot::CharacterBody3D *body = godot::Object::cast_to<godot::CharacterBody3D>(instance);
+	rec.type = (body != nullptr) ? NODE_TYPE_CHARACTER_BODY3D : NODE_TYPE_NODE3D;
+
+	nodes[rec.id] = rec;
+
+	lua_pushinteger(p_L, rec.id);
+	return 1;
+}
+
+// destroy(id) -> void
+// 销毁节点并释放引用。
+// 对于通过 instantiate 创建的节点，调用 queue_free 销毁节点。
+// 对于通过 get_by_path 获取的节点，仅释放引用。
+static int l_destroy(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
 
 	if (!nodes.has(id)) {
@@ -128,8 +255,24 @@ static int l_release(lua_State *p_L) {
 		return 0;
 	}
 
+	NodeRecord *rec = &nodes[id];
+
+	// 如果是创建的节点且节点仍有效，销毁它
+	if (rec->ownership == NODE_OWNERSHIP_OWNED &&
+		rec->node != nullptr &&
+		rec->node->is_inside_tree()) {
+		rec->node->queue_free();
+	}
+
 	nodes.erase(id);
 	return 0;
+}
+
+// release(id) -> void
+// [已废弃] 释放节点引用。
+// 请使用 destroy 替代。
+static int l_release(lua_State *p_L) {
+	return l_destroy(p_L);
 }
 
 // is_valid(id) -> bool
@@ -542,8 +685,11 @@ static int l_get_type(lua_State *p_L) {
 
 static const luaL_Reg node_funcs[] = {
 	// 节点引用管理
-	{"get_by_path", l_get_by_path},
-	{"release", l_release},
+	{"set_root", l_set_root},
+	{"instantiate", l_instantiate},
+	{"destroy", l_destroy},
+	{"get_by_path", l_get_by_path},  // 已废弃，保留兼容
+	{"release", l_release},          // 已废弃，保留兼容
 	{"is_valid", l_is_valid},
 
 	// 位置
@@ -579,10 +725,19 @@ int luaopen_native_node(lua_State *p_L) {
 }
 
 void node_cleanup() {
-	// 清除所有节点引用
-	// 注意：不销毁节点本身，节点由 Godot 场景树管理
+	// 销毁所有创建的节点
+	for (const godot::KeyValue<int32_t, NodeRecord> &kv : nodes) {
+		if (kv.value.ownership == NODE_OWNERSHIP_OWNED &&
+			kv.value.node != nullptr &&
+			kv.value.node->is_inside_tree()) {
+			kv.value.node->queue_free();
+		}
+	}
+
+	// 清除引用和重置状态
 	nodes.clear();
 	next_id = 1;
+	root_node = nullptr;  // 清除根节点引用
 }
 
 } // namespace luagd

@@ -7,16 +7,38 @@ local M = {}
 -- 节点引用管理
 -- ============================================================================
 
+--- native_node.set_root(path) -> boolean
+--- 设置根节点路径，后续创建的节点将挂载到此节点下。
+---@param path string 根节点路径（如 "/root/pre_entry/pre_scene/root"）
+---@return boolean success 是否设置成功
+function M.set_root(path) end
+
+--- native_node.instantiate(scene_path) -> int
+--- 从场景资源路径加载并实例化节点，挂载到根节点下。
+--- 注意：必须先调用 set_root 设置根节点。
+---@param scene_path string 场景资源路径（如 "res://assets/char/sm_char_proto.glb"）
+---@return integer id 节点句柄，失败返回 -1
+function M.instantiate(scene_path) end
+
+--- native_node.destroy(id) -> void
+--- 销毁节点并释放引用。
+--- 对于通过 create_from_scene 创建的节点，调用 queue_free 销毁节点。
+--- 对于通过 get_by_path 获取的节点，仅释放引用。
+---@param id integer 节点句柄
+function M.destroy(id) end
+
 --- native_node.get_by_path(path) -> int
---- 通过场景路径获取节点句柄。
---- 支持 Node3D 及其所有派生类（包括 CharacterBody3D）。
----@param path string 节点路径（如 "%Player" 或 "../Player"）
+--- [已废弃] 通过场景路径获取节点句柄。
+--- 请使用 create_from_scene 替代。
+---@deprecated 使用 create_from_scene 替代
+---@param path string 节点路径（如 "/root/pre_entry/pre_scene/root/sm_char_proto"）
 ---@return integer id 节点句柄，失败返回 -1
 function M.get_by_path(path) end
 
 --- native_node.release(id) -> void
---- 释放节点引用。
---- 注意：不会销毁节点本身，仅释放模块内的引用。
+--- [已废弃] 释放节点引用。
+--- 请使用 destroy 替代。
+---@deprecated 使用 destroy 替代
 ---@param id integer 节点句柄
 function M.release(id) end
 
