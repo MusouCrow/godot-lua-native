@@ -35,13 +35,6 @@ function M.destroy(id) end
 ---@return integer id 节点句柄，失败返回 -1
 function M.get_by_path(path) end
 
---- native_node.release(id) -> void
---- [已废弃] 释放节点引用。
---- 请使用 destroy 替代。
----@deprecated 使用 destroy 替代
----@param id integer 节点句柄
-function M.release(id) end
-
 --- native_node.is_valid(id) -> boolean
 --- 检查节点引用是否有效。
 ---@param id integer 节点句柄

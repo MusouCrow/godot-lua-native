@@ -268,13 +268,6 @@ static int l_destroy(lua_State *p_L) {
 	return 0;
 }
 
-// release(id) -> void
-// [已废弃] 释放节点引用。
-// 请使用 destroy 替代。
-static int l_release(lua_State *p_L) {
-	return l_destroy(p_L);
-}
-
 // is_valid(id) -> bool
 // 检查节点引用是否有效。
 static int l_is_valid(lua_State *p_L) {
@@ -689,7 +682,6 @@ static const luaL_Reg node_funcs[] = {
 	{"instantiate", l_instantiate},
 	{"destroy", l_destroy},
 	{"get_by_path", l_get_by_path},  // 已废弃，保留兼容
-	{"release", l_release},          // 已废弃，保留兼容
 	{"is_valid", l_is_valid},
 
 	// 位置
