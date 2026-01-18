@@ -9,7 +9,7 @@ local M = {}
 
 --- native_node.get_by_path(path) -> int
 --- 通过场景路径获取节点句柄。
---- 注意：目前仅支持 CharacterBody3D 节点。
+--- 支持 Node3D 及其所有派生类（包括 CharacterBody3D）。
 ---@param path string 节点路径（如 "%Player" 或 "../Player"）
 ---@return integer id 节点句柄，失败返回 -1
 function M.get_by_path(path) end
@@ -95,7 +95,7 @@ function M.get_forward(id, is_global) end
 --- native_node.move_and_slide(id) -> boolean
 --- 执行移动并滑动。
 --- 应在 physics_process 中调用。
---- 修改节点的 velocity 属性。
+--- 仅支持 CharacterBody3D 节点。
 ---@param id integer 节点句柄
 ---@return boolean collided 是否发生碰撞
 function M.move_and_slide(id) end
@@ -103,6 +103,7 @@ function M.move_and_slide(id) end
 --- native_node.set_velocity(id, x, y, z) -> void
 --- 设置节点的速度向量。
 --- 注意：不要乘以 delta，move_and_slide 会自动处理。
+--- 仅支持 CharacterBody3D 节点。
 ---@param id integer 节点句柄
 ---@param x number X 方向速度
 ---@param y number Y 方向速度
@@ -111,6 +112,7 @@ function M.set_velocity(id, x, y, z) end
 
 --- native_node.get_velocity(id) -> number, number, number
 --- 获取节点的速度向量。
+--- 仅支持 CharacterBody3D 节点。
 ---@param id integer 节点句柄
 ---@return number x X 方向速度
 ---@return number y Y 方向速度
@@ -120,6 +122,7 @@ function M.get_velocity(id) end
 --- native_node.get_real_velocity(id) -> number, number, number
 --- 获取节点的实际移动速度。
 --- 考虑滑动后的实际速度。
+--- 仅支持 CharacterBody3D 节点。
 ---@param id integer 节点句柄
 ---@return number x X 方向实际速度
 ---@return number y Y 方向实际速度
@@ -129,6 +132,7 @@ function M.get_real_velocity(id) end
 --- native_node.is_on_floor(id) -> boolean
 --- 检查节点是否在地面上。
 --- 仅在 move_and_slide 调用后有效。
+--- 仅支持 CharacterBody3D 节点。
 ---@param id integer 节点句柄
 ---@return boolean on_floor 是否在地面
 function M.is_on_floor(id) end
@@ -136,6 +140,7 @@ function M.is_on_floor(id) end
 --- native_node.is_on_wall(id) -> boolean
 --- 检查节点是否在墙上。
 --- 仅在 move_and_slide 调用后有效。
+--- 仅支持 CharacterBody3D 节点。
 ---@param id integer 节点句柄
 ---@return boolean on_wall 是否在墙
 function M.is_on_wall(id) end
@@ -143,6 +148,7 @@ function M.is_on_wall(id) end
 --- native_node.is_on_ceiling(id) -> boolean
 --- 检查节点是否在天花板上。
 --- 仅在 move_and_slide 调用后有效。
+--- 仅支持 CharacterBody3D 节点。
 ---@param id integer 节点句柄
 ---@return boolean on_ceiling 是否在天花板
 function M.is_on_ceiling(id) end
@@ -150,6 +156,7 @@ function M.is_on_ceiling(id) end
 --- native_node.get_floor_normal(id) -> number, number, number
 --- 获取地面的碰撞法线。
 --- 仅在 move_and_slide 调用后且 is_on_floor 为 true 时有效。
+--- 仅支持 CharacterBody3D 节点。
 ---@param id integer 节点句柄
 ---@return number nx 法线 X 分量
 ---@return number ny 法线 Y 分量
@@ -165,5 +172,11 @@ function M.get_floor_normal(id) end
 ---@param id integer 节点句柄
 ---@return string name 节点名称
 function M.get_name(id) end
+
+--- native_node.get_type(id) -> string
+--- 获取节点类型。
+---@param id integer 节点句柄
+---@return string type 节点类型（"Node3D" 或 "CharacterBody3D"）
+function M.get_type(id) end
 
 return M

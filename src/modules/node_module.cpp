@@ -2,6 +2,7 @@
 
 #include <godot_cpp/classes/character_body3d.hpp>
 #include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/window.hpp>
@@ -16,10 +17,17 @@ extern "C" {
 
 namespace luagd {
 
+// 节点类型枚举
+enum NodeType {
+	NODE_TYPE_NODE3D = 0,
+	NODE_TYPE_CHARACTER_BODY3D = 1
+};
+
 // 节点记录
 struct NodeRecord {
 	int32_t id;
-	godot::CharacterBody3D *node;
+	godot::Node3D *node;  // 改为 Node3D*，支持所有 3D 节点
+	NodeType type;        // 节点类型
 };
 
 // 模块级静态数据
@@ -49,7 +57,7 @@ static NodeRecord *get_node(int32_t p_id, const char *p_func_name) {
 
 // get_by_path(path) -> id
 // 通过场景路径获取节点句柄。
-// 目前仅支持 CharacterBody3D 节点。
+// 支持 Node3D 及其所有派生类（包括 CharacterBody3D）。
 // 返回节点 id，失败返回 -1。
 static int l_get_by_path(lua_State *p_L) {
 	const char *path = luaL_checkstring(p_L, 1);
@@ -87,16 +95,22 @@ static int l_get_by_path(lua_State *p_L) {
 		return 1;
 	}
 
-	godot::CharacterBody3D *body = godot::Object::cast_to<godot::CharacterBody3D>(found_node);
-	if (body == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.get_by_path: node is not a CharacterBody3D: ", path);
+	// 检查是否为 Node3D 或其派生类
+	godot::Node3D *node3d = godot::Object::cast_to<godot::Node3D>(found_node);
+	if (node3d == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.get_by_path: node is not a Node3D: ", path);
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
 
 	NodeRecord rec;
 	rec.id = next_id++;
-	rec.node = body;
+	rec.node = node3d;
+
+	// 检测是否为 CharacterBody3D
+	godot::CharacterBody3D *body = godot::Object::cast_to<godot::CharacterBody3D>(found_node);
+	rec.type = (body != nullptr) ? NODE_TYPE_CHARACTER_BODY3D : NODE_TYPE_NODE3D;
+
 	nodes[rec.id] = rec;
 
 	lua_pushinteger(p_L, rec.id);
@@ -278,6 +292,7 @@ static int l_get_forward(lua_State *p_L) {
 // move_and_slide(id) -> bool
 // 执行移动并滑动。
 // 应在 physics_process 中调用。
+// 仅支持 CharacterBody3D 节点。
 // 返回是否发生碰撞。
 static int l_move_and_slide(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
@@ -288,13 +303,21 @@ static int l_move_and_slide(lua_State *p_L) {
 		return 1;
 	}
 
-	bool collided = rec->node->move_and_slide();
+	if (rec->type != NODE_TYPE_CHARACTER_BODY3D) {
+		godot::UtilityFunctions::printerr("native_node.move_and_slide: node is not CharacterBody3D");
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	bool collided = body->move_and_slide();
 	lua_pushboolean(p_L, collided);
 	return 1;
 }
 
 // set_velocity(id, x, y, z) -> void
 // 设置节点的速度向量。
+// 仅支持 CharacterBody3D 节点。
 // 注意：不要乘以 delta，move_and_slide 会自动处理。
 static int l_set_velocity(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
@@ -307,13 +330,20 @@ static int l_set_velocity(lua_State *p_L) {
 		return 0;
 	}
 
+	if (rec->type != NODE_TYPE_CHARACTER_BODY3D) {
+		godot::UtilityFunctions::printerr("native_node.set_velocity: node is not CharacterBody3D");
+		return 0;
+	}
+
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
 	godot::Vector3 vel((float)x, (float)y, (float)z);
-	rec->node->set_velocity(vel);
+	body->set_velocity(vel);
 	return 0;
 }
 
 // get_velocity(id) -> x, y, z
 // 获取节点的速度向量。
+// 仅支持 CharacterBody3D 节点。
 static int l_get_velocity(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
 
@@ -322,7 +352,16 @@ static int l_get_velocity(lua_State *p_L) {
 		return 0;
 	}
 
-	godot::Vector3 vel = rec->node->get_velocity();
+	if (rec->type != NODE_TYPE_CHARACTER_BODY3D) {
+		godot::UtilityFunctions::printerr("native_node.get_velocity: node is not CharacterBody3D");
+		lua_pushnumber(p_L, 0);
+		lua_pushnumber(p_L, 0);
+		lua_pushnumber(p_L, 0);
+		return 3;
+	}
+
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::Vector3 vel = body->get_velocity();
 	lua_pushnumber(p_L, vel.x);
 	lua_pushnumber(p_L, vel.y);
 	lua_pushnumber(p_L, vel.z);
@@ -331,6 +370,7 @@ static int l_get_velocity(lua_State *p_L) {
 
 // get_real_velocity(id) -> x, y, z
 // 获取节点的实际移动速度。
+// 仅支持 CharacterBody3D 节点。
 // 考虑滑动后的实际速度。
 static int l_get_real_velocity(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
@@ -340,7 +380,16 @@ static int l_get_real_velocity(lua_State *p_L) {
 		return 0;
 	}
 
-	godot::Vector3 vel = rec->node->get_real_velocity();
+	if (rec->type != NODE_TYPE_CHARACTER_BODY3D) {
+		godot::UtilityFunctions::printerr("native_node.get_real_velocity: node is not CharacterBody3D");
+		lua_pushnumber(p_L, 0);
+		lua_pushnumber(p_L, 0);
+		lua_pushnumber(p_L, 0);
+		return 3;
+	}
+
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::Vector3 vel = body->get_real_velocity();
 	lua_pushnumber(p_L, vel.x);
 	lua_pushnumber(p_L, vel.y);
 	lua_pushnumber(p_L, vel.z);
@@ -349,6 +398,7 @@ static int l_get_real_velocity(lua_State *p_L) {
 
 // is_on_floor(id) -> bool
 // 检查节点是否在地面上。
+// 仅支持 CharacterBody3D 节点。
 // 仅在 move_and_slide 调用后有效。
 static int l_is_on_floor(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
@@ -359,12 +409,20 @@ static int l_is_on_floor(lua_State *p_L) {
 		return 1;
 	}
 
-	lua_pushboolean(p_L, rec->node->is_on_floor());
+	if (rec->type != NODE_TYPE_CHARACTER_BODY3D) {
+		godot::UtilityFunctions::printerr("native_node.is_on_floor: node is not CharacterBody3D");
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	lua_pushboolean(p_L, body->is_on_floor());
 	return 1;
 }
 
 // is_on_wall(id) -> bool
 // 检查节点是否在墙上。
+// 仅支持 CharacterBody3D 节点。
 // 仅在 move_and_slide 调用后有效。
 static int l_is_on_wall(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
@@ -375,12 +433,20 @@ static int l_is_on_wall(lua_State *p_L) {
 		return 1;
 	}
 
-	lua_pushboolean(p_L, rec->node->is_on_wall());
+	if (rec->type != NODE_TYPE_CHARACTER_BODY3D) {
+		godot::UtilityFunctions::printerr("native_node.is_on_wall: node is not CharacterBody3D");
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	lua_pushboolean(p_L, body->is_on_wall());
 	return 1;
 }
 
 // is_on_ceiling(id) -> bool
 // 检查节点是否在天花板上。
+// 仅支持 CharacterBody3D 节点。
 // 仅在 move_and_slide 调用后有效。
 static int l_is_on_ceiling(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
@@ -391,12 +457,20 @@ static int l_is_on_ceiling(lua_State *p_L) {
 		return 1;
 	}
 
-	lua_pushboolean(p_L, rec->node->is_on_ceiling());
+	if (rec->type != NODE_TYPE_CHARACTER_BODY3D) {
+		godot::UtilityFunctions::printerr("native_node.is_on_ceiling: node is not CharacterBody3D");
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	lua_pushboolean(p_L, body->is_on_ceiling());
 	return 1;
 }
 
 // get_floor_normal(id) -> x, y, z
 // 获取地面的碰撞法线。
+// 仅支持 CharacterBody3D 节点。
 // 仅在 move_and_slide 调用后且 is_on_floor 为 true 时有效。
 static int l_get_floor_normal(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
@@ -406,7 +480,16 @@ static int l_get_floor_normal(lua_State *p_L) {
 		return 0;
 	}
 
-	godot::Vector3 normal = rec->node->get_floor_normal();
+	if (rec->type != NODE_TYPE_CHARACTER_BODY3D) {
+		godot::UtilityFunctions::printerr("native_node.get_floor_normal: node is not CharacterBody3D");
+		lua_pushnumber(p_L, 0);
+		lua_pushnumber(p_L, 0);
+		lua_pushnumber(p_L, 0);
+		return 3;
+	}
+
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::Vector3 normal = body->get_floor_normal();
 	lua_pushnumber(p_L, normal.x);
 	lua_pushnumber(p_L, normal.y);
 	lua_pushnumber(p_L, normal.z);
@@ -430,6 +513,26 @@ static int l_get_name(lua_State *p_L) {
 	godot::String name = rec->node->get_name();
 	godot::CharString utf8_name = name.utf8();
 	lua_pushstring(p_L, utf8_name.get_data());
+	return 1;
+}
+
+// get_type(id) -> string
+// 获取节点类型。
+// 返回 "Node3D" 或 "CharacterBody3D"。
+static int l_get_type(lua_State *p_L) {
+	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+
+	NodeRecord *rec = get_node(id, "get_type");
+	if (rec == nullptr) {
+		lua_pushstring(p_L, "");
+		return 1;
+	}
+
+	if (rec->type == NODE_TYPE_CHARACTER_BODY3D) {
+		lua_pushstring(p_L, "CharacterBody3D");
+	} else {
+		lua_pushstring(p_L, "Node3D");
+	}
 	return 1;
 }
 
@@ -465,6 +568,7 @@ static const luaL_Reg node_funcs[] = {
 
 	// 信息
 	{"get_name", l_get_name},
+	{"get_type", l_get_type},
 
 	{nullptr, nullptr}
 };
