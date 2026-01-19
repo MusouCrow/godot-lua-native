@@ -86,6 +86,7 @@ set(EXTENSION_SOURCES
 				src/modules/system_module.cpp
 				src/modules/audio_module.cpp
 				src/modules/node_module.cpp
+			src/modules/res_module.cpp
 )
 
 add_library(${EXTENSION_NAME} SHARED ${EXTENSION_SOURCES})
