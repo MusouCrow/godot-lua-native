@@ -380,14 +380,15 @@ static int l_get_rotation(lua_State *p_L) {
 	return 3;
 }
 
-// look_at(id, target_x, target_y, target_z) -> void
+// look_at(id, target_x, target_y, target_z, use_model_front) -> void
 // 使节点朝向目标位置。
-// 节点的 -Z 轴（前向）将指向目标位置。
+// use_model_front: true 时 +Z 轴（模型前向）指向目标，false 时 -Z 轴指向目标（默认 false）。
 static int l_look_at(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
 	double x = luaL_checknumber(p_L, 2);
 	double y = luaL_checknumber(p_L, 3);
 	double z = luaL_checknumber(p_L, 4);
+	bool use_model_front = lua_toboolean(p_L, 5);
 
 	NodeRecord *rec = get_node(id, "look_at");
 	if (rec == nullptr) {
@@ -395,7 +396,8 @@ static int l_look_at(lua_State *p_L) {
 	}
 
 	godot::Vector3 target((float)x, (float)y, (float)z);
-	rec->node->look_at(target);
+	godot::Vector3 up(0.0f, 1.0f, 0.0f);
+	rec->node->look_at(target, up, use_model_front);
 	return 0;
 }
 
