@@ -85,23 +85,24 @@ function M.set_rotation(id, x, y, z, is_global) end
 ---@return number z Z 轴旋转（弧度）
 function M.get_rotation(id, is_global) end
 
---- native_node.look_at(id, target_x, target_y, target_z) -> void
+--- native_node.look_at(id, target_x, target_y, target_z, use_model_front) -> void
 --- 使节点朝向目标位置。
---- 节点的 -Z 轴（前向）将指向目标位置。
 ---@param id integer 节点句柄
 ---@param target_x number 目标 X 坐标
 ---@param target_y number 目标 Y 坐标
 ---@param target_z number 目标 Z 坐标
-function M.look_at(id, target_x, target_y, target_z) end
+---@param use_model_front? boolean true 时 +Z 轴指向目标（模型前向），false 时 -Z 轴指向目标（默认 false）
+function M.look_at(id, target_x, target_y, target_z, use_model_front) end
 
---- native_node.get_forward(id, is_global) -> number, number, number
+--- native_node.get_forward(id, is_global, use_model_front) -> number, number, number
 --- 获取节点的前向向量（归一化）。
 ---@param id integer 节点句柄
 ---@param is_global? boolean true 为世界空间前向，false 为局部前向（默认 false）
+---@param use_model_front? boolean true 返回 +Z 轴（模型前向），false 返回 -Z 轴（默认 false）
 ---@return number x 前向向量 X 分量
 ---@return number y 前向向量 Y 分量
 ---@return number z 前向向量 Z 分量
-function M.get_forward(id, is_global) end
+function M.get_forward(id, is_global, use_model_front) end
 
 -- ============================================================================
 -- 移动
