@@ -192,7 +192,25 @@ function M.get_name(id) end
 --- native_node.get_type(id) -> string
 --- 获取节点类型。
 ---@param id integer 节点句柄
----@return string type 节点类型（"Node3D" 或 "CharacterBody3D"）
+---@return string type 节点类型（"Node3D"、"CharacterBody3D" 或 "Camera3D"）
 function M.get_type(id) end
+
+-- ============================================================================
+-- 相机
+-- ============================================================================
+
+--- native_node.set_fov(id, fov) -> void
+--- 设置相机视场角（FOV）。
+--- 仅对 Camera3D 节点有效。
+---@param id integer 节点句柄
+---@param fov number 视场角（度）
+function M.set_fov(id, fov) end
+
+--- native_node.get_fov(id) -> number
+--- 获取相机视场角（FOV）。
+--- 仅对 Camera3D 节点有效。
+---@param id integer 节点句柄
+---@return number fov 视场角（度）
+function M.get_fov(id) end
 
 return M

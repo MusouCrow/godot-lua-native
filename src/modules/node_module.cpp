@@ -1,5 +1,6 @@
 #include "node_module.h"
 
+#include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/character_body3d.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node3d.hpp>
@@ -22,7 +23,8 @@ namespace luagd {
 // 节点类型枚举
 enum NodeType {
 	NODE_TYPE_NODE3D = 0,
-	NODE_TYPE_CHARACTER_BODY3D = 1
+	NODE_TYPE_CHARACTER_BODY3D = 1,
+	NODE_TYPE_CAMERA3D = 2
 };
 
 // 节点所有权类型
@@ -118,9 +120,14 @@ static int l_get_by_path(lua_State *p_L) {
 	rec.node = node3d;
 	rec.ownership = NODE_OWNERSHIP_REFERENCE;  // 标记为引用
 
-	// 检测是否为 CharacterBody3D
-	godot::CharacterBody3D *body = godot::Object::cast_to<godot::CharacterBody3D>(found_node);
-	rec.type = (body != nullptr) ? NODE_TYPE_CHARACTER_BODY3D : NODE_TYPE_NODE3D;
+	// 检测节点类型（按优先级：Camera3D > CharacterBody3D > Node3D）
+	godot::Camera3D *camera = godot::Object::cast_to<godot::Camera3D>(found_node);
+	if (camera != nullptr) {
+		rec.type = NODE_TYPE_CAMERA3D;
+	} else {
+		godot::CharacterBody3D *body = godot::Object::cast_to<godot::CharacterBody3D>(found_node);
+		rec.type = (body != nullptr) ? NODE_TYPE_CHARACTER_BODY3D : NODE_TYPE_NODE3D;
+	}
 
 	nodes[rec.id] = rec;
 
@@ -233,9 +240,14 @@ static int l_instantiate(lua_State *p_L) {
 	rec.node = node3d;
 	rec.ownership = NODE_OWNERSHIP_OWNED;  // 标记为创建的节点
 
-	// 检测节点类型
-	godot::CharacterBody3D *body = godot::Object::cast_to<godot::CharacterBody3D>(instance);
-	rec.type = (body != nullptr) ? NODE_TYPE_CHARACTER_BODY3D : NODE_TYPE_NODE3D;
+	// 检测节点类型（按优先级：Camera3D > CharacterBody3D > Node3D）
+	godot::Camera3D *camera = godot::Object::cast_to<godot::Camera3D>(instance);
+	if (camera != nullptr) {
+		rec.type = NODE_TYPE_CAMERA3D;
+	} else {
+		godot::CharacterBody3D *body = godot::Object::cast_to<godot::CharacterBody3D>(instance);
+		rec.type = (body != nullptr) ? NODE_TYPE_CHARACTER_BODY3D : NODE_TYPE_NODE3D;
+	}
 
 	nodes[rec.id] = rec;
 
@@ -669,9 +681,62 @@ static int l_get_type(lua_State *p_L) {
 
 	if (rec->type == NODE_TYPE_CHARACTER_BODY3D) {
 		lua_pushstring(p_L, "CharacterBody3D");
+	} else if (rec->type == NODE_TYPE_CAMERA3D) {
+		lua_pushstring(p_L, "Camera3D");
 	} else {
 		lua_pushstring(p_L, "Node3D");
 	}
+	return 1;
+}
+
+// ============================================================================
+// 相机
+// ============================================================================
+
+// set_fov(id, fov) -> void
+// 设置相机的视场角（FOV）。
+// 仅对 Camera3D 节点有效。
+// fov: 视场角（度）
+static int l_set_fov(lua_State *p_L) {
+	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	double fov = luaL_checknumber(p_L, 2);
+
+	NodeRecord *rec = get_node(id, "set_fov");
+	if (rec == nullptr) {
+		return 0;
+	}
+
+	godot::Camera3D *camera = godot::Object::cast_to<godot::Camera3D>(rec->node);
+	if (camera == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.set_fov: node is not Camera3D");
+		return 0;
+	}
+
+	camera->set_fov((float)fov);
+	return 0;
+}
+
+// get_fov(id) -> fov
+// 获取相机的视场角（FOV）。
+// 仅对 Camera3D 节点有效。
+// 返回: 视场角（度）
+static int l_get_fov(lua_State *p_L) {
+	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+
+	NodeRecord *rec = get_node(id, "get_fov");
+	if (rec == nullptr) {
+		return 0;
+	}
+
+	godot::Camera3D *camera = godot::Object::cast_to<godot::Camera3D>(rec->node);
+	if (camera == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.get_fov: node is not Camera3D");
+		lua_pushnumber(p_L, 0);
+		return 1;
+	}
+
+	float fov = camera->get_fov();
+	lua_pushnumber(p_L, fov);
 	return 1;
 }
 
@@ -710,6 +775,10 @@ static const luaL_Reg node_funcs[] = {
 	// 信息
 	{"get_name", l_get_name},
 	{"get_type", l_get_type},
+
+	// 相机
+	{"set_fov", l_set_fov},
+	{"get_fov", l_get_fov},
 
 	{nullptr, nullptr}
 };
