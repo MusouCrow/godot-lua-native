@@ -68,21 +68,21 @@ function M.get_position(id, is_global) end
 -- ============================================================================
 
 --- native_node.set_rotation(id, x, y, z, is_global) -> void
---- 设置节点旋转（弧度）。
+--- 设置节点旋转（度数）。
 ---@param id integer 节点句柄
----@param x number X 轴旋转（弧度）
----@param y number Y 轴旋转（弧度）
----@param z number Z 轴旋转（弧度）
+---@param x number X 轴旋转（度数）
+---@param y number Y 轴旋转（度数）
+---@param z number Z 轴旋转（度数）
 ---@param is_global? boolean true 为世界旋转，false 为局部旋转（默认 false）
 function M.set_rotation(id, x, y, z, is_global) end
 
 --- native_node.get_rotation(id, is_global) -> number, number, number
---- 获取节点旋转（弧度）。
+--- 获取节点旋转（度数）。
 ---@param id integer 节点句柄
 ---@param is_global? boolean true 为世界旋转，false 为局部旋转（默认 false）
----@return number x X 轴旋转（弧度）
----@return number y Y 轴旋转（弧度）
----@return number z Z 轴旋转（弧度）
+---@return number x X 轴旋转（度数）
+---@return number y Y 轴旋转（度数）
+---@return number z Z 轴旋转（度数）
 function M.get_rotation(id, is_global) end
 
 --- native_node.look_at(id, target_x, target_y, target_z, use_model_front) -> void

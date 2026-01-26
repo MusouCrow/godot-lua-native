@@ -349,7 +349,7 @@ static int l_get_position(lua_State *p_L) {
 // ============================================================================
 
 // set_rotation(id, x, y, z, is_global) -> void
-// 设置节点旋转（弧度）。
+// 设置节点旋转（度数）。
 // is_global: true 为世界旋转，false 为局部旋转（默认）。
 static int l_set_rotation(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
@@ -365,15 +365,15 @@ static int l_set_rotation(lua_State *p_L) {
 
 	godot::Vector3 rot((float)x, (float)y, (float)z);
 	if (is_global) {
-		rec->node->set_global_rotation(rot);
+		rec->node->set_global_rotation_degrees(rot);
 	} else {
-		rec->node->set_rotation(rot);
+		rec->node->set_rotation_degrees(rot);
 	}
 	return 0;
 }
 
 // get_rotation(id, is_global) -> x, y, z
-// 获取节点旋转（弧度）。
+// 获取节点旋转（度数）。
 // is_global: true 为世界旋转，false 为局部旋转（默认）。
 static int l_get_rotation(lua_State *p_L) {
 	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
@@ -384,8 +384,8 @@ static int l_get_rotation(lua_State *p_L) {
 		return 0;
 	}
 
-	godot::Vector3 rot = is_global ? rec->node->get_global_rotation()
-	                                : rec->node->get_rotation();
+	godot::Vector3 rot = is_global ? rec->node->get_global_rotation_degrees()
+	                                : rec->node->get_rotation_degrees();
 	lua_pushnumber(p_L, rot.x);
 	lua_pushnumber(p_L, rot.y);
 	lua_pushnumber(p_L, rot.z);
