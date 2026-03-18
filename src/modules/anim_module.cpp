@@ -14,6 +14,8 @@
 #include <godot_cpp/classes/animation_node_blend_tree.hpp>
 #include <godot_cpp/classes/animation_node_time_scale.hpp>
 #include <godot_cpp/classes/animation_player.hpp>
+#include <godot_cpp/classes/resource.hpp>
+#include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/animation_tree.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node3d.hpp>
@@ -54,6 +56,7 @@ enum SlotIndex {
 };
 
 static const char *EMPTY_ANIM_NAME = "__native_anim_empty";
+static const char *INTERNAL_LIBRARY_NAME = "__native_anim_internal";
 static const char *BASE_NODE_NAME = "__native_anim_base";
 static const int32_t INVALID_ANIMATOR_ID = -1;
 
@@ -95,9 +98,10 @@ struct LayerRecord {
 struct AnimatorRecord {
 	int32_t id;
 	int32_t owner_node_id;
-	godot::NodePath animation_player_path;
+	godot::AnimationPlayer *animation_player;
 	godot::AnimationTree *animation_tree;
 	godot::Ref<godot::AnimationNodeBlendTree> tree_root;
+	godot::HashMap<godot::StringName, godot::Ref<godot::AnimationLibrary>> libraries;
 	godot::HashMap<godot::StringName, LayerRecord> layers;
 	godot::Vector<godot::StringName> layer_order;
 };
@@ -122,70 +126,58 @@ static bool _is_valid_mix_mode(int32_t p_mix_mode) {
 	return p_mix_mode == MIX_BLEND || p_mix_mode == MIX_ADD;
 }
 
-// 外部 AnimationPlayer 不归 native_anim 持有，每次使用时重新解析。
 static godot::Node3D *_resolve_owner_node(const AnimatorRecord &p_animator) {
 	return node_resolve(p_animator.owner_node_id);
 }
 
-static godot::AnimationPlayer *_resolve_animation_player(const AnimatorRecord &p_animator) {
-	if (p_animator.animation_player_path.is_empty()) {
-		return nullptr;
+static godot::StringName _make_animation_key(const godot::StringName &p_library_name, const godot::StringName &p_anim_name) {
+	if (p_library_name.is_empty()) {
+		return p_anim_name;
 	}
-
-	godot::Node3D *owner = _resolve_owner_node(p_animator);
-	if (owner == nullptr) {
-		return nullptr;
-	}
-
-	godot::Node *node = owner->get_node<godot::Node>(p_animator.animation_player_path);
-	if (node == nullptr) {
-		return nullptr;
-	}
-
-	return godot::Object::cast_to<godot::AnimationPlayer>(node);
+	return godot::StringName(godot::String(p_library_name) + "/" + godot::String(p_anim_name));
 }
 
-static godot::AnimationPlayer *_find_animation_player_recursive(godot::Node *p_node) {
-	if (p_node == nullptr) {
-		return nullptr;
-	}
-
-	godot::AnimationPlayer *player = godot::Object::cast_to<godot::AnimationPlayer>(p_node);
-	if (player != nullptr) {
-		return player;
-	}
-
-	int32_t child_count = p_node->get_child_count();
-	for (int32_t i = 0; i < child_count; i++) {
-		godot::Node *child = p_node->get_child(i);
-		godot::AnimationPlayer *found = _find_animation_player_recursive(child);
-		if (found != nullptr) {
-			return found;
-		}
-	}
-
-	return nullptr;
+static godot::StringName _empty_anim_key() {
+	return _make_animation_key(godot::StringName(INTERNAL_LIBRARY_NAME), godot::StringName(EMPTY_ANIM_NAME));
 }
 
-static bool _ensure_empty_animation(godot::AnimationPlayer *p_player) {
-	if (p_player == nullptr) {
+static bool _has_animation(AnimatorRecord *p_animator, const godot::StringName &p_anim_name) {
+	if (p_animator == nullptr || p_animator->animation_tree == nullptr) {
+		return false;
+	}
+	return p_animator->animation_tree->has_animation(p_anim_name);
+}
+
+static bool _ensure_internal_library(AnimatorRecord *p_animator) {
+	if (p_animator == nullptr || p_animator->animation_player == nullptr || p_animator->animation_tree == nullptr) {
 		return false;
 	}
 
-	if (p_player->has_animation(EMPTY_ANIM_NAME)) {
+	const godot::StringName library_name(INTERNAL_LIBRARY_NAME);
+	const godot::StringName anim_name(EMPTY_ANIM_NAME);
+	if (_has_animation(p_animator, _empty_anim_key())) {
 		return true;
 	}
 
-	godot::Ref<godot::AnimationLibrary> library = p_player->get_animation_library("");
+	godot::Ref<godot::AnimationLibrary> library;
+	if (p_animator->animation_player->has_animation_library(library_name)) {
+		library = p_animator->animation_player->get_animation_library(library_name);
+	}
 	if (library.is_null()) {
 		library.instantiate();
-		if (p_player->add_animation_library("", library) != godot::OK) {
-			godot::UtilityFunctions::printerr("native_anim.create_animator: failed to add global animation library");
+		if (p_animator->animation_player->add_animation_library(library_name, library) != godot::OK) {
+			godot::UtilityFunctions::printerr("native_anim.create_animator: failed to add internal animation library to player");
 			return false;
 		}
+		if (p_animator->animation_tree->add_animation_library(library_name, library) != godot::OK) {
+			p_animator->animation_player->remove_animation_library(library_name);
+			godot::UtilityFunctions::printerr("native_anim.create_animator: failed to add internal animation library to tree");
+			return false;
+		}
+		p_animator->libraries[library_name] = library;
 	}
 
-	if (library->has_animation(EMPTY_ANIM_NAME)) {
+	if (library->has_animation(anim_name)) {
 		return true;
 	}
 
@@ -193,7 +185,7 @@ static bool _ensure_empty_animation(godot::AnimationPlayer *p_player) {
 	animation.instantiate();
 	animation->set_length(0.01);
 	animation->set_loop_mode(godot::Animation::LOOP_NONE);
-	library->add_animation(EMPTY_ANIM_NAME, animation);
+	library->add_animation(anim_name, animation);
 	return true;
 }
 
@@ -201,7 +193,7 @@ static bool _is_animator_runtime_valid(const AnimatorRecord &p_animator) {
 	if (_resolve_owner_node(p_animator) == nullptr) {
 		return false;
 	}
-	if (_resolve_animation_player(p_animator) == nullptr) {
+	if (p_animator.animation_player == nullptr || !p_animator.animation_player->is_inside_tree()) {
 		return false;
 	}
 	if (p_animator.animation_tree == nullptr || !p_animator.animation_tree->is_inside_tree()) {
@@ -218,13 +210,12 @@ static godot::AnimationPlayer *_get_animation_player(AnimatorRecord *p_animator,
 		return nullptr;
 	}
 
-	godot::AnimationPlayer *player = _resolve_animation_player(*p_animator);
-	if (player == nullptr) {
+	if (p_animator->animation_player == nullptr || !p_animator->animation_player->is_inside_tree()) {
 		godot::UtilityFunctions::printerr("native_anim.", p_func_name, ": animation player is no longer valid");
 		return nullptr;
 	}
 
-	return player;
+	return p_animator->animation_player;
 }
 
 static AnimatorRecord *_get_animator(int32_t p_animator_id, const char *p_func_name) {
@@ -339,7 +330,7 @@ static bool _assign_slot_empty(AnimatorRecord *p_animator, LayerRecord *p_layer,
 	const godot::StringName node_name = godot::StringName(godot::String(p_slot->time_scale_node_name) + "_empty");
 	godot::Ref<godot::AnimationNodeAnimation> node;
 	node.instantiate();
-	node->set_animation(EMPTY_ANIM_NAME);
+	node->set_animation(_empty_anim_key());
 	p_animator->tree_root->add_node(node_name, node);
 	_connect_input(p_animator->tree_root, p_slot->time_scale_node_name, 0, node_name);
 	p_slot->source_node_name = node_name;
@@ -352,11 +343,10 @@ static bool _assign_slot_anim(AnimatorRecord *p_animator, LayerRecord *p_layer, 
 	if (p_animator == nullptr || p_layer == nullptr || p_slot == nullptr) {
 		return false;
 	}
-	godot::AnimationPlayer *player = _get_animation_player(p_animator, "play");
-	if (player == nullptr) {
+	if (_get_animation_player(p_animator, "play") == nullptr) {
 		return false;
 	}
-	if (!player->has_animation(p_anim_name)) {
+	if (!_has_animation(p_animator, p_anim_name)) {
 		godot::UtilityFunctions::printerr("native_anim.play: animation not found: ", godot::String(p_anim_name));
 		return false;
 	}
@@ -382,8 +372,7 @@ static bool _assign_slot_blend2d(AnimatorRecord *p_animator, LayerRecord *p_laye
 	if (p_animator == nullptr || p_layer == nullptr || p_slot == nullptr) {
 		return false;
 	}
-	godot::AnimationPlayer *player = _get_animation_player(p_animator, "play_blend2d");
-	if (player == nullptr) {
+	if (_get_animation_player(p_animator, "play_blend2d") == nullptr) {
 		return false;
 	}
 	if ((p_layer->flags & FLAG_ALLOW_BLEND2D) == 0) {
@@ -407,7 +396,7 @@ static bool _assign_slot_blend2d(AnimatorRecord *p_animator, LayerRecord *p_laye
 
 	for (int32_t i = 0; i < p_layer->blend2d_points.size(); i++) {
 		const Blend2DPointRecord &point = p_layer->blend2d_points[i];
-		if (!player->has_animation(point.anim_name)) {
+		if (!_has_animation(p_animator, point.anim_name)) {
 			godot::UtilityFunctions::printerr("native_anim.play_blend2d: animation not found: ", godot::String(point.anim_name));
 			return false;
 		}
@@ -553,7 +542,7 @@ static bool _remove_layer_nodes(AnimatorRecord *p_animator, LayerRecord *p_layer
 	return true;
 }
 
-// 创建 Animator，并绑定宿主节点下的 AnimationPlayer。
+// 创建 Animator，并在宿主节点下创建内部 AnimationPlayer 和 AnimationTree。
 static int l_create_animator(lua_State *p_L) {
 	if (!_ensure_main_thread("create_animator")) {
 		lua_pushinteger(p_L, INVALID_ANIMATOR_ID);
@@ -568,34 +557,31 @@ static int l_create_animator(lua_State *p_L) {
 		return 1;
 	}
 
-	godot::AnimationPlayer *player = _find_animation_player_recursive(owner);
-	if (player == nullptr) {
-		godot::UtilityFunctions::printerr("native_anim.create_animator: AnimationPlayer not found under owner");
-		lua_pushinteger(p_L, INVALID_ANIMATOR_ID);
-		return 1;
-	}
-	if (!_ensure_empty_animation(player)) {
-		lua_pushinteger(p_L, INVALID_ANIMATOR_ID);
-		return 1;
-	}
-
 	AnimatorRecord animator;
 	animator.id = next_animator_id++;
 	animator.owner_node_id = owner_node_id;
-	animator.animation_player_path = owner->get_path_to(player);
+	animator.animation_player = memnew(godot::AnimationPlayer);
+	animator.animation_player->set_name(godot::String("_NativeAnimPlayer") + godot::String::num_int64(animator.id));
 	animator.animation_tree = memnew(godot::AnimationTree);
 	animator.animation_tree->set_name(godot::String("_NativeAnimTree") + godot::String::num_int64(animator.id));
 	animator.animation_tree->set_callback_mode_process(godot::AnimationMixer::ANIMATION_CALLBACK_MODE_PROCESS_MANUAL);
 	animator.animation_tree->set_active(true);
 	animator.tree_root.instantiate();
 
+	owner->add_child(animator.animation_player);
 	owner->add_child(animator.animation_tree);
-	animator.animation_tree->set_animation_player(animator.animation_tree->get_path_to(player));
+	animator.animation_tree->set_animation_player(animator.animation_tree->get_path_to(animator.animation_player));
 	animator.animation_tree->set_tree_root(animator.tree_root);
+	if (!_ensure_internal_library(&animator)) {
+		animator.animation_tree->queue_free();
+		animator.animation_player->queue_free();
+		lua_pushinteger(p_L, INVALID_ANIMATOR_ID);
+		return 1;
+	}
 
 	godot::Ref<godot::AnimationNodeAnimation> base_node;
 	base_node.instantiate();
-	base_node->set_animation(EMPTY_ANIM_NAME);
+	base_node->set_animation(_empty_anim_key());
 	animator.tree_root->add_node(godot::StringName(BASE_NODE_NAME), base_node);
 	animator.tree_root->connect_node(godot::StringName("output"), 0, godot::StringName(BASE_NODE_NAME));
 
@@ -614,6 +600,9 @@ static int l_destroy_animator(lua_State *p_L) {
 		return 0;
 	}
 	AnimatorRecord *animator = &animators[animator_id];
+	if (animator->animation_player != nullptr) {
+		animator->animation_player->queue_free();
+	}
 	if (animator->animation_tree != nullptr) {
 		animator->animation_tree->queue_free();
 	}
@@ -633,6 +622,69 @@ static int l_is_animator_valid(lua_State *p_L) {
 		return 1;
 	}
 	lua_pushboolean(p_L, _is_animator_runtime_valid(animators[animator_id]));
+	return 1;
+}
+
+// 加载并添加 AnimationLibrary。
+static int l_add_animation_library(lua_State *p_L) {
+	if (!_ensure_main_thread("add_animation_library")) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
+	const char *library_name_cstr = luaL_checkstring(p_L, 2);
+	const char *library_path_cstr = luaL_checkstring(p_L, 3);
+
+	AnimatorRecord *animator = _get_animator(animator_id, "add_animation_library");
+	if (animator == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+	if (_get_animation_player(animator, "add_animation_library") == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	const godot::StringName library_name(library_name_cstr);
+	if (library_name == godot::StringName(INTERNAL_LIBRARY_NAME)) {
+		godot::UtilityFunctions::printerr("native_anim.add_animation_library: reserved library name: ", godot::String(library_name));
+		_push_bool(p_L, false);
+		return 1;
+	}
+	if (animator->libraries.has(library_name)) {
+		godot::UtilityFunctions::printerr("native_anim.add_animation_library: duplicated library: ", godot::String(library_name));
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	godot::Ref<godot::Resource> resource = godot::ResourceLoader::get_singleton()->load(godot::String(library_path_cstr));
+	if (resource.is_null()) {
+		godot::UtilityFunctions::printerr("native_anim.add_animation_library: failed to load resource: ", library_path_cstr);
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	godot::Ref<godot::AnimationLibrary> library = resource;
+	if (library.is_null()) {
+		godot::UtilityFunctions::printerr("native_anim.add_animation_library: resource is not AnimationLibrary: ", library_path_cstr);
+		_push_bool(p_L, false);
+		return 1;
+	}
+	if (animator->animation_player->add_animation_library(library_name, library) != godot::OK) {
+		godot::UtilityFunctions::printerr("native_anim.add_animation_library: failed to add library to player: ", library_path_cstr);
+		_push_bool(p_L, false);
+		return 1;
+	}
+	if (animator->animation_tree->add_animation_library(library_name, library) != godot::OK) {
+		animator->animation_player->remove_animation_library(library_name);
+		godot::UtilityFunctions::printerr("native_anim.add_animation_library: failed to add library to tree: ", library_path_cstr);
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	animator->libraries[library_name] = library;
+	_push_bool(p_L, true);
 	return 1;
 }
 
@@ -1031,6 +1083,7 @@ static const luaL_Reg anim_funcs[] = {
 	{"create_animator", l_create_animator},
 	{"destroy_animator", l_destroy_animator},
 	{"is_animator_valid", l_is_animator_valid},
+	{"add_animation_library", l_add_animation_library},
 	{"create_layer", l_create_layer},
 	{"destroy_layer", l_destroy_layer},
 	{"has_layer", l_has_layer},
@@ -1061,6 +1114,9 @@ int luaopen_native_anim(lua_State *p_L) {
 void anim_cleanup() {
 	for (const godot::KeyValue<int32_t, AnimatorRecord> &kv : animators) {
 		const AnimatorRecord &animator = kv.value;
+		if (animator.animation_player != nullptr) {
+			animator.animation_player->queue_free();
+		}
 		if (animator.animation_tree != nullptr) {
 			animator.animation_tree->queue_free();
 		}

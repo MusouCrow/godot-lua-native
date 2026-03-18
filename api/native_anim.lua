@@ -10,10 +10,19 @@ M.FLAG_NONE = 0
 M.FLAG_ALLOW_BLEND2D = 1
 
 --- native_anim.create_animator(owner_node_id) -> int
---- 创建 Animator，自动绑定 owner 节点下的 AnimationPlayer。
+--- 创建 Animator，自动在 owner 节点下挂载内部 AnimationPlayer 和 AnimationTree。
 ---@param owner_node_id integer native_node 返回的节点 id
 ---@return integer animator_id Animator id，失败返回 -1
 function M.create_animator(owner_node_id) end
+
+--- native_anim.add_animation_library(animator_id, library_name, library_path) -> bool
+--- 为 Animator 添加 AnimationLibrary 资源。
+--- 动画名规则与 Godot 一致：默认库使用 "idle"，命名库使用 "char/run"。
+---@param animator_id integer Animator id
+---@param library_name string 动画库名；传空字符串表示默认库
+---@param library_path string AnimationLibrary 资源路径
+---@return boolean success 是否成功
+function M.add_animation_library(animator_id, library_name, library_path) end
 
 --- native_anim.destroy_animator(animator_id) -> void
 ---@param animator_id integer Animator id
