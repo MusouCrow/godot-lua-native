@@ -804,4 +804,17 @@ void node_cleanup() {
 	root_node = nullptr;  // 清除根节点引用
 }
 
+godot::Node3D *node_resolve(int32_t p_id) {
+	if (!nodes.has(p_id)) {
+		return nullptr;
+	}
+
+	NodeRecord *rec = &nodes[p_id];
+	if (rec->node == nullptr || !rec->node->is_inside_tree()) {
+		return nullptr;
+	}
+
+	return rec->node;
+}
+
 } // namespace luagd

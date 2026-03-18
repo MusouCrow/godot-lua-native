@@ -1,7 +1,13 @@
 #ifndef LUAGD_NODE_MODULE_H
 #define LUAGD_NODE_MODULE_H
 
+#include <cstdint>
+
 struct lua_State;
+
+namespace godot {
+class Node3D;
+}
 
 namespace luagd {
 
@@ -13,6 +19,10 @@ int luaopen_native_node(lua_State *p_L);
 // 清理节点模块资源。
 // 释放所有节点引用。
 void node_cleanup();
+
+// 通过 native_node id 解析 Node3D。
+// 仅供其他 native 模块内部使用，失败返回 nullptr。
+godot::Node3D *node_resolve(int32_t p_id);
 
 } // namespace luagd
 

@@ -8,6 +8,7 @@
 #include "../modules/input_module.h"
 #include "../modules/system_module.h"
 #include "../modules/audio_module.h"
+#include "../modules/anim_module.h"
 #include "../modules/node_module.h"
 #include "../modules/res_module.h"
 
@@ -54,6 +55,10 @@ bool LuaRuntime::initialize() {
 	luaL_requiref(state, "native_audio", luaopen_native_audio, 0);
 	lua_pop(state, 1);
 
+	// 注册 native_anim 模块
+	luaL_requiref(state, "native_anim", luaopen_native_anim, 0);
+	lua_pop(state, 1);
+
 	// 注册 native_node 模块
 	luaL_requiref(state, "native_node", luaopen_native_node, 0);
 	lua_pop(state, 1);
@@ -67,6 +72,7 @@ bool LuaRuntime::initialize() {
 
 void LuaRuntime::shutdown() {
 	res_cleanup();
+	anim_cleanup();
 	node_cleanup();
 	if (state != nullptr) {
 		lua_close(state);

@@ -85,6 +85,7 @@ set(EXTENSION_SOURCES
 				src/modules/input_module.cpp
 				src/modules/system_module.cpp
 				src/modules/audio_module.cpp
+				src/modules/anim_module.cpp
 				src/modules/node_module.cpp
 			src/modules/res_module.cpp
 )
