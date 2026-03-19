@@ -9,6 +9,9 @@
 #include <godot_cpp/classes/window.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
+#include <godot_cpp/core/object.hpp>
+#include <godot_cpp/core/object_id.hpp>
+#include <godot_cpp/templates/hash_set.hpp>
 #include <godot_cpp/variant/node_path.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -35,27 +38,108 @@ enum NodeOwnership {
 
 // 节点记录
 struct NodeRecord {
-	int32_t id;
-	godot::Node3D *node;  // 改为 Node3D*，支持所有 3D 节点
+	godot::ObjectID id;
 	NodeType type;        // 节点类型
 	NodeOwnership ownership;  // 所有权类型
 };
 
 // 模块级静态数据
-static godot::HashMap<int32_t, NodeRecord> nodes;
-static int32_t next_id = 1;
-static godot::Node *root_node = nullptr;  // 根节点指针
+static godot::HashMap<godot::ObjectID, NodeRecord> nodes;
+static godot::HashMap<godot::ObjectID, godot::HashSet<godot::ObjectID>> root_children;
+static godot::ObjectID root_node_id;
+
+static godot::ObjectID _read_object_id(lua_State *p_L, int p_index) {
+	return godot::ObjectID((uint64_t)luaL_checkinteger(p_L, p_index));
+}
+
+static godot::Node3D *_resolve_node3d(godot::ObjectID p_id) {
+	if (p_id.is_null()) {
+		return nullptr;
+	}
+
+	return godot::Object::cast_to<godot::Node3D>(godot::ObjectDB::get_instance((uint64_t)p_id));
+}
+
+static godot::ObjectID _get_tracking_root_id(godot::Node *p_node) {
+	if (p_node == nullptr) {
+		return godot::ObjectID();
+	}
+
+	godot::Node *owner = p_node->get_owner();
+	if (owner == nullptr) {
+		return godot::ObjectID(p_node->get_instance_id());
+	}
+
+	return godot::ObjectID(owner->get_instance_id());
+}
+
+static NodeType _detect_node_type(godot::Node *p_node) {
+	if (godot::Object::cast_to<godot::Camera3D>(p_node) != nullptr) {
+		return NODE_TYPE_CAMERA3D;
+	}
+
+	if (godot::Object::cast_to<godot::CharacterBody3D>(p_node) != nullptr) {
+		return NODE_TYPE_CHARACTER_BODY3D;
+	}
+
+	return NODE_TYPE_NODE3D;
+}
+
+static void _remove_child_from_root_table(godot::ObjectID p_root_id, godot::ObjectID p_child_id) {
+	if (!root_children.has(p_root_id)) {
+		return;
+	}
+
+	root_children[p_root_id].erase(p_child_id);
+	if (root_children[p_root_id].is_empty()) {
+		root_children.erase(p_root_id);
+	}
+}
+
+static void _unregister_reference_node(godot::ObjectID p_id) {
+	if (!nodes.has(p_id)) {
+		return;
+	}
+
+	NodeRecord rec = nodes[p_id];
+	if (rec.ownership == NODE_OWNERSHIP_REFERENCE) {
+		_remove_child_from_root_table(_get_tracking_root_id(_resolve_node3d(p_id)), p_id);
+	}
+
+	nodes.erase(p_id);
+}
+
+static godot::ObjectID _register_node(godot::Node3D *p_node, NodeOwnership p_ownership) {
+	if (p_node == nullptr) {
+		return godot::ObjectID();
+	}
+
+	const godot::ObjectID id = godot::ObjectID(p_node->get_instance_id());
+	NodeRecord rec;
+	rec.id = id;
+	rec.type = _detect_node_type(p_node);
+	rec.ownership = p_ownership;
+	nodes[id] = rec;
+	return id;
+}
+
+static godot::Node3D *_get_record_node(const NodeRecord *p_rec) {
+	if (p_rec == nullptr) {
+		return nullptr;
+	}
+
+	return _resolve_node3d(p_rec->id);
+}
 
 // 获取节点记录，不存在时打印错误
-static NodeRecord *get_node(int32_t p_id, const char *p_func_name) {
+static NodeRecord *get_node(godot::ObjectID p_id, const char *p_func_name) {
 	if (!nodes.has(p_id)) {
 		godot::UtilityFunctions::printerr("native_node.", p_func_name, ": invalid id ", p_id);
 		return nullptr;
 	}
 	NodeRecord *rec = &nodes[p_id];
-
-	// 检查节点是否仍有效
-	if (rec->node == nullptr || !rec->node->is_inside_tree()) {
+	if (_resolve_node3d(p_id) == nullptr) {
+		_unregister_reference_node(p_id);
 		godot::UtilityFunctions::printerr("native_node.", p_func_name, ": node is no longer valid, id ", p_id);
 		return nullptr;
 	}
@@ -67,71 +151,45 @@ static NodeRecord *get_node(int32_t p_id, const char *p_func_name) {
 // 节点引用管理
 // ============================================================================
 
-// get_by_path(path) -> id
-// 通过场景路径获取节点句柄。
-// 支持 Node3D 及其所有派生类（包括 CharacterBody3D）。
-// 返回节点 id，失败返回 -1。
-static int l_get_by_path(lua_State *p_L) {
-	const char *path = luaL_checkstring(p_L, 1);
+// get_child_by_path(id, path) -> id
+// 基于指定节点查找子节点并返回句柄。
+// 返回子节点 id，失败返回 -1。
+static int l_get_child_by_path(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const char *path = luaL_checkstring(p_L, 2);
 
-	godot::SceneTree *tree = godot::Object::cast_to<godot::SceneTree>(
-		godot::Engine::get_singleton()->get_main_loop()
-	);
-	if (tree == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.get_by_path: SceneTree not available");
+	NodeRecord *owner_rec = get_node(id, "get_child_by_path");
+	if (owner_rec == nullptr) {
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
 
-	godot::Window *root_window = tree->get_root();
-	if (root_window == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.get_by_path: Scene root not available");
-		lua_pushinteger(p_L, -1);
-		return 1;
-	}
-
-	// Window 继承自 Viewport，需要找到实际的根节点
-	// get_root() 返回的 Window 就是场景树的根，可以作为节点访问
-	godot::Node *root = godot::Object::cast_to<godot::Node>(root_window);
-	if (root == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.get_by_path: Scene root is not a Node");
+	godot::Node3D *owner_node = _resolve_node3d(owner_rec->id);
+	if (owner_node == nullptr) {
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
 
 	godot::NodePath node_path((godot::String(path)));
-	godot::Node *found_node = root->get_node<godot::Node>(node_path);
-	if (found_node == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.get_by_path: node not found: ", path);
+	if (!owner_node->has_node(node_path)) {
+		godot::UtilityFunctions::printerr("native_node.get_child_by_path: node not found: ", path);
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
 
-	// 检查是否为 Node3D 或其派生类
+	godot::Node *found_node = owner_node->get_node<godot::Node>(node_path);
 	godot::Node3D *node3d = godot::Object::cast_to<godot::Node3D>(found_node);
 	if (node3d == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.get_by_path: node is not a Node3D: ", path);
+		godot::UtilityFunctions::printerr("native_node.get_child_by_path: node is not a Node3D: ", path);
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
 
-	NodeRecord rec;
-	rec.id = next_id++;
-	rec.node = node3d;
-	rec.ownership = NODE_OWNERSHIP_REFERENCE;  // 标记为引用
+	const godot::ObjectID child_id = _register_node(node3d, NODE_OWNERSHIP_REFERENCE);
+	const godot::ObjectID root_id = _get_tracking_root_id(owner_node);
+	root_children[root_id].insert(child_id);
 
-	// 检测节点类型（按优先级：Camera3D > CharacterBody3D > Node3D）
-	godot::Camera3D *camera = godot::Object::cast_to<godot::Camera3D>(found_node);
-	if (camera != nullptr) {
-		rec.type = NODE_TYPE_CAMERA3D;
-	} else {
-		godot::CharacterBody3D *body = godot::Object::cast_to<godot::CharacterBody3D>(found_node);
-		rec.type = (body != nullptr) ? NODE_TYPE_CHARACTER_BODY3D : NODE_TYPE_NODE3D;
-	}
-
-	nodes[rec.id] = rec;
-
-	lua_pushinteger(p_L, rec.id);
+	lua_pushinteger(p_L, (int64_t)child_id);
 	return 1;
 }
 
@@ -168,7 +226,7 @@ static int l_set_root(lua_State *p_L) {
 		return 1;
 	}
 
-	root_node = found_node;
+	root_node_id = godot::ObjectID(found_node->get_instance_id());
 	lua_pushboolean(p_L, true);
 	return 1;
 }
@@ -182,16 +240,16 @@ static int l_instantiate(lua_State *p_L) {
 	const char *scene_path = luaL_checkstring(p_L, 1);
 
 	// 检查根节点是否已设置
-	if (root_node == nullptr) {
+	if (root_node_id.is_null()) {
 		godot::UtilityFunctions::printerr("native_node.instantiate: root not set, call set_root first");
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
 
-	// 检查根节点是否仍有效
-	if (!root_node->is_inside_tree()) {
+	godot::Node *root_node = godot::Object::cast_to<godot::Node>(godot::ObjectDB::get_instance((uint64_t)root_node_id));
+	if (root_node == nullptr || !root_node->is_inside_tree()) {
 		godot::UtilityFunctions::printerr("native_node.instantiate: root node is no longer valid");
-		root_node = nullptr;
+		root_node_id = godot::ObjectID();
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
@@ -234,46 +292,40 @@ static int l_instantiate(lua_State *p_L) {
 	// 添加到根节点
 	root_node->add_child(instance);
 
-	// 创建记录
-	NodeRecord rec;
-	rec.id = next_id++;
-	rec.node = node3d;
-	rec.ownership = NODE_OWNERSHIP_OWNED;  // 标记为创建的节点
-
-	// 检测节点类型（按优先级：Camera3D > CharacterBody3D > Node3D）
-	godot::Camera3D *camera = godot::Object::cast_to<godot::Camera3D>(instance);
-	if (camera != nullptr) {
-		rec.type = NODE_TYPE_CAMERA3D;
-	} else {
-		godot::CharacterBody3D *body = godot::Object::cast_to<godot::CharacterBody3D>(instance);
-		rec.type = (body != nullptr) ? NODE_TYPE_CHARACTER_BODY3D : NODE_TYPE_NODE3D;
-	}
-
-	nodes[rec.id] = rec;
-
-	lua_pushinteger(p_L, rec.id);
+	const godot::ObjectID id = _register_node(node3d, NODE_OWNERSHIP_OWNED);
+	lua_pushinteger(p_L, (int64_t)id);
 	return 1;
 }
 
 // destroy(id) -> void
 // 销毁节点并释放引用。
 // 对于通过 instantiate 创建的节点，调用 queue_free 销毁节点。
-// 对于通过 get_by_path 获取的节点，仅释放引用。
+// 对于通过 get_child_by_path 获取的节点，仅释放引用。
 static int l_destroy(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	const godot::ObjectID id = _read_object_id(p_L, 1);
 
 	if (!nodes.has(id)) {
 		// 重复释放不报错，静默处理
 		return 0;
 	}
 
-	NodeRecord *rec = &nodes[id];
+	NodeRecord rec = nodes[id];
+	if (root_children.has(id)) {
+		godot::HashSet<godot::ObjectID> child_ids = root_children[id];
+		for (godot::HashSet<godot::ObjectID>::Iterator it = child_ids.begin(); it != child_ids.end(); ++it) {
+			_unregister_reference_node(*it);
+		}
+		root_children.erase(id);
+	}
 
 	// 如果是创建的节点且节点仍有效，销毁它
-	if (rec->ownership == NODE_OWNERSHIP_OWNED &&
-		rec->node != nullptr &&
-		rec->node->is_inside_tree()) {
-		rec->node->queue_free();
+	if (rec.ownership == NODE_OWNERSHIP_OWNED) {
+		godot::Node3D *node = _resolve_node3d(id);
+		if (node != nullptr && node->is_inside_tree()) {
+			node->queue_free();
+		}
+	} else {
+		_remove_child_from_root_table(_get_tracking_root_id(_resolve_node3d(id)), id);
 	}
 
 	nodes.erase(id);
@@ -283,15 +335,15 @@ static int l_destroy(lua_State *p_L) {
 // is_valid(id) -> bool
 // 检查节点引用是否有效。
 static int l_is_valid(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	const godot::ObjectID id = _read_object_id(p_L, 1);
 
 	if (!nodes.has(id)) {
 		lua_pushboolean(p_L, false);
 		return 1;
 	}
 
-	NodeRecord *rec = &nodes[id];
-	bool valid = rec->node != nullptr && rec->node->is_inside_tree();
+	godot::Node3D *node = _resolve_node3d(id);
+	bool valid = node != nullptr && node->is_inside_tree();
 	lua_pushboolean(p_L, valid);
 	return 1;
 }
@@ -304,7 +356,7 @@ static int l_is_valid(lua_State *p_L) {
 // 设置节点位置。
 // is_global: true 为世界坐标，false 为局部坐标（默认）。
 static int l_set_position(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 	double x = luaL_checknumber(p_L, 2);
 	double y = luaL_checknumber(p_L, 3);
 	double z = luaL_checknumber(p_L, 4);
@@ -314,12 +366,13 @@ static int l_set_position(lua_State *p_L) {
 	if (rec == nullptr) {
 		return 0;
 	}
+	godot::Node3D *node = _get_record_node(rec);
 
 	godot::Vector3 pos((float)x, (float)y, (float)z);
 	if (is_global) {
-		rec->node->set_global_position(pos);
+		node->set_global_position(pos);
 	} else {
-		rec->node->set_position(pos);
+		node->set_position(pos);
 	}
 	return 0;
 }
@@ -328,16 +381,17 @@ static int l_set_position(lua_State *p_L) {
 // 获取节点位置。
 // is_global: true 为世界坐标，false 为局部坐标（默认）。
 static int l_get_position(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 	bool is_global = lua_toboolean(p_L, 2);
 
 	NodeRecord *rec = get_node(id, "get_position");
 	if (rec == nullptr) {
 		return 0;
 	}
+	godot::Node3D *node = _get_record_node(rec);
 
-	godot::Vector3 pos = is_global ? rec->node->get_global_position()
-	                                : rec->node->get_position();
+	godot::Vector3 pos = is_global ? node->get_global_position()
+	                                : node->get_position();
 	lua_pushnumber(p_L, pos.x);
 	lua_pushnumber(p_L, pos.y);
 	lua_pushnumber(p_L, pos.z);
@@ -352,7 +406,7 @@ static int l_get_position(lua_State *p_L) {
 // 设置节点旋转（度数）。
 // is_global: true 为世界旋转，false 为局部旋转（默认）。
 static int l_set_rotation(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 	double x = luaL_checknumber(p_L, 2);
 	double y = luaL_checknumber(p_L, 3);
 	double z = luaL_checknumber(p_L, 4);
@@ -362,12 +416,13 @@ static int l_set_rotation(lua_State *p_L) {
 	if (rec == nullptr) {
 		return 0;
 	}
+	godot::Node3D *node = _get_record_node(rec);
 
 	godot::Vector3 rot((float)x, (float)y, (float)z);
 	if (is_global) {
-		rec->node->set_global_rotation_degrees(rot);
+		node->set_global_rotation_degrees(rot);
 	} else {
-		rec->node->set_rotation_degrees(rot);
+		node->set_rotation_degrees(rot);
 	}
 	return 0;
 }
@@ -376,16 +431,17 @@ static int l_set_rotation(lua_State *p_L) {
 // 获取节点旋转（度数）。
 // is_global: true 为世界旋转，false 为局部旋转（默认）。
 static int l_get_rotation(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 	bool is_global = lua_toboolean(p_L, 2);
 
 	NodeRecord *rec = get_node(id, "get_rotation");
 	if (rec == nullptr) {
 		return 0;
 	}
+	godot::Node3D *node = _get_record_node(rec);
 
-	godot::Vector3 rot = is_global ? rec->node->get_global_rotation_degrees()
-	                                : rec->node->get_rotation_degrees();
+	godot::Vector3 rot = is_global ? node->get_global_rotation_degrees()
+	                                : node->get_rotation_degrees();
 	lua_pushnumber(p_L, rot.x);
 	lua_pushnumber(p_L, rot.y);
 	lua_pushnumber(p_L, rot.z);
@@ -396,7 +452,7 @@ static int l_get_rotation(lua_State *p_L) {
 // 使节点朝向目标位置。
 // use_model_front: true 时 +Z 轴（模型前向）指向目标，false 时 -Z 轴指向目标（默认 false）。
 static int l_look_at(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 	double x = luaL_checknumber(p_L, 2);
 	double y = luaL_checknumber(p_L, 3);
 	double z = luaL_checknumber(p_L, 4);
@@ -406,10 +462,11 @@ static int l_look_at(lua_State *p_L) {
 	if (rec == nullptr) {
 		return 0;
 	}
+	godot::Node3D *node = _get_record_node(rec);
 
 	godot::Vector3 target((float)x, (float)y, (float)z);
 	godot::Vector3 up(0.0f, 1.0f, 0.0f);
-	rec->node->look_at(target, up, use_model_front);
+	node->look_at(target, up, use_model_front);
 	return 0;
 }
 
@@ -418,7 +475,7 @@ static int l_look_at(lua_State *p_L) {
 // is_global: true 为世界空间前向，false 为局部前向（默认）。
 // use_model_front: true 返回 +Z 轴（模型前向），false 返回 -Z 轴（相机前向，默认）。
 static int l_get_forward(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 	bool is_global = lua_toboolean(p_L, 2);
 	bool use_model_front = lua_toboolean(p_L, 3);
 
@@ -426,9 +483,10 @@ static int l_get_forward(lua_State *p_L) {
 	if (rec == nullptr) {
 		return 0;
 	}
+	godot::Node3D *node = _get_record_node(rec);
 
-	godot::Basis basis = is_global ? rec->node->get_global_transform().basis
-	                                : rec->node->get_transform().basis;
+	godot::Basis basis = is_global ? node->get_global_transform().basis
+	                                : node->get_transform().basis;
 	godot::Vector3 forward = use_model_front ? basis.get_column(2) : -basis.get_column(2);
 	lua_pushnumber(p_L, forward.x);
 	lua_pushnumber(p_L, forward.y);
@@ -446,7 +504,7 @@ static int l_get_forward(lua_State *p_L) {
 // 仅支持 CharacterBody3D 节点。
 // 返回是否发生碰撞。
 static int l_move_and_slide(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 
 	NodeRecord *rec = get_node(id, "move_and_slide");
 	if (rec == nullptr) {
@@ -460,7 +518,7 @@ static int l_move_and_slide(lua_State *p_L) {
 		return 1;
 	}
 
-	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(_get_record_node(rec));
 	bool collided = body->move_and_slide();
 	lua_pushboolean(p_L, collided);
 	return 1;
@@ -471,7 +529,7 @@ static int l_move_and_slide(lua_State *p_L) {
 // 仅支持 CharacterBody3D 节点。
 // 注意：不要乘以 delta，move_and_slide 会自动处理。
 static int l_set_velocity(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 	double x = luaL_checknumber(p_L, 2);
 	double y = luaL_checknumber(p_L, 3);
 	double z = luaL_checknumber(p_L, 4);
@@ -486,7 +544,7 @@ static int l_set_velocity(lua_State *p_L) {
 		return 0;
 	}
 
-	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(_get_record_node(rec));
 	godot::Vector3 vel((float)x, (float)y, (float)z);
 	body->set_velocity(vel);
 	return 0;
@@ -496,7 +554,7 @@ static int l_set_velocity(lua_State *p_L) {
 // 获取节点的速度向量。
 // 仅支持 CharacterBody3D 节点。
 static int l_get_velocity(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 
 	NodeRecord *rec = get_node(id, "get_velocity");
 	if (rec == nullptr) {
@@ -511,7 +569,7 @@ static int l_get_velocity(lua_State *p_L) {
 		return 3;
 	}
 
-	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(_get_record_node(rec));
 	godot::Vector3 vel = body->get_velocity();
 	lua_pushnumber(p_L, vel.x);
 	lua_pushnumber(p_L, vel.y);
@@ -524,7 +582,7 @@ static int l_get_velocity(lua_State *p_L) {
 // 仅支持 CharacterBody3D 节点。
 // 考虑滑动后的实际速度。
 static int l_get_real_velocity(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 
 	NodeRecord *rec = get_node(id, "get_real_velocity");
 	if (rec == nullptr) {
@@ -539,7 +597,7 @@ static int l_get_real_velocity(lua_State *p_L) {
 		return 3;
 	}
 
-	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(_get_record_node(rec));
 	godot::Vector3 vel = body->get_real_velocity();
 	lua_pushnumber(p_L, vel.x);
 	lua_pushnumber(p_L, vel.y);
@@ -552,7 +610,7 @@ static int l_get_real_velocity(lua_State *p_L) {
 // 仅支持 CharacterBody3D 节点。
 // 仅在 move_and_slide 调用后有效。
 static int l_is_on_floor(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 
 	NodeRecord *rec = get_node(id, "is_on_floor");
 	if (rec == nullptr) {
@@ -566,7 +624,7 @@ static int l_is_on_floor(lua_State *p_L) {
 		return 1;
 	}
 
-	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(_get_record_node(rec));
 	lua_pushboolean(p_L, body->is_on_floor());
 	return 1;
 }
@@ -576,7 +634,7 @@ static int l_is_on_floor(lua_State *p_L) {
 // 仅支持 CharacterBody3D 节点。
 // 仅在 move_and_slide 调用后有效。
 static int l_is_on_wall(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 
 	NodeRecord *rec = get_node(id, "is_on_wall");
 	if (rec == nullptr) {
@@ -590,7 +648,7 @@ static int l_is_on_wall(lua_State *p_L) {
 		return 1;
 	}
 
-	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(_get_record_node(rec));
 	lua_pushboolean(p_L, body->is_on_wall());
 	return 1;
 }
@@ -600,7 +658,7 @@ static int l_is_on_wall(lua_State *p_L) {
 // 仅支持 CharacterBody3D 节点。
 // 仅在 move_and_slide 调用后有效。
 static int l_is_on_ceiling(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 
 	NodeRecord *rec = get_node(id, "is_on_ceiling");
 	if (rec == nullptr) {
@@ -614,7 +672,7 @@ static int l_is_on_ceiling(lua_State *p_L) {
 		return 1;
 	}
 
-	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(_get_record_node(rec));
 	lua_pushboolean(p_L, body->is_on_ceiling());
 	return 1;
 }
@@ -624,7 +682,7 @@ static int l_is_on_ceiling(lua_State *p_L) {
 // 仅支持 CharacterBody3D 节点。
 // 仅在 move_and_slide 调用后且 is_on_floor 为 true 时有效。
 static int l_get_floor_normal(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 
 	NodeRecord *rec = get_node(id, "get_floor_normal");
 	if (rec == nullptr) {
@@ -639,7 +697,7 @@ static int l_get_floor_normal(lua_State *p_L) {
 		return 3;
 	}
 
-	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(rec->node);
+	godot::CharacterBody3D *body = static_cast<godot::CharacterBody3D*>(_get_record_node(rec));
 	godot::Vector3 normal = body->get_floor_normal();
 	lua_pushnumber(p_L, normal.x);
 	lua_pushnumber(p_L, normal.y);
@@ -654,14 +712,14 @@ static int l_get_floor_normal(lua_State *p_L) {
 // get_name(id) -> string
 // 获取节点名称。
 static int l_get_name(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 
 	NodeRecord *rec = get_node(id, "get_name");
 	if (rec == nullptr) {
 		return 0;
 	}
 
-	godot::String name = rec->node->get_name();
+	godot::String name = _get_record_node(rec)->get_name();
 	godot::CharString utf8_name = name.utf8();
 	lua_pushstring(p_L, utf8_name.get_data());
 	return 1;
@@ -671,7 +729,7 @@ static int l_get_name(lua_State *p_L) {
 // 获取节点类型。
 // 返回 "Node3D" 或 "CharacterBody3D"。
 static int l_get_type(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 
 	NodeRecord *rec = get_node(id, "get_type");
 	if (rec == nullptr) {
@@ -698,7 +756,7 @@ static int l_get_type(lua_State *p_L) {
 // 仅对 Camera3D 节点有效。
 // fov: 视场角（度）
 static int l_set_fov(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 	double fov = luaL_checknumber(p_L, 2);
 
 	NodeRecord *rec = get_node(id, "set_fov");
@@ -706,7 +764,7 @@ static int l_set_fov(lua_State *p_L) {
 		return 0;
 	}
 
-	godot::Camera3D *camera = godot::Object::cast_to<godot::Camera3D>(rec->node);
+	godot::Camera3D *camera = godot::Object::cast_to<godot::Camera3D>(_get_record_node(rec));
 	if (camera == nullptr) {
 		godot::UtilityFunctions::printerr("native_node.set_fov: node is not Camera3D");
 		return 0;
@@ -721,14 +779,14 @@ static int l_set_fov(lua_State *p_L) {
 // 仅对 Camera3D 节点有效。
 // 返回: 视场角（度）
 static int l_get_fov(lua_State *p_L) {
-	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID id = _read_object_id(p_L, 1);
 
 	NodeRecord *rec = get_node(id, "get_fov");
 	if (rec == nullptr) {
 		return 0;
 	}
 
-	godot::Camera3D *camera = godot::Object::cast_to<godot::Camera3D>(rec->node);
+	godot::Camera3D *camera = godot::Object::cast_to<godot::Camera3D>(_get_record_node(rec));
 	if (camera == nullptr) {
 		godot::UtilityFunctions::printerr("native_node.get_fov: node is not Camera3D");
 		lua_pushnumber(p_L, 0);
@@ -749,7 +807,7 @@ static const luaL_Reg node_funcs[] = {
 	{"set_root", l_set_root},
 	{"instantiate", l_instantiate},
 	{"destroy", l_destroy},
-	{"get_by_path", l_get_by_path},  // 已废弃，保留兼容
+	{"get_child_by_path", l_get_child_by_path},
 	{"is_valid", l_is_valid},
 
 	// 位置
@@ -789,32 +847,23 @@ int luaopen_native_node(lua_State *p_L) {
 }
 
 void node_cleanup() {
-	// 销毁所有创建的节点
-	for (const godot::KeyValue<int32_t, NodeRecord> &kv : nodes) {
-		if (kv.value.ownership == NODE_OWNERSHIP_OWNED &&
-			kv.value.node != nullptr &&
-			kv.value.node->is_inside_tree()) {
-			kv.value.node->queue_free();
-		}
-	}
-
-	// 清除引用和重置状态
+	// GDExtension 反初始化阶段只清理模块记录，场景对象交给引擎统一销毁。
 	nodes.clear();
-	next_id = 1;
-	root_node = nullptr;  // 清除根节点引用
+	root_children.clear();
+	root_node_id = godot::ObjectID();
 }
 
-godot::Node3D *node_resolve(int32_t p_id) {
+godot::Node3D *node_resolve(godot::ObjectID p_id) {
 	if (!nodes.has(p_id)) {
 		return nullptr;
 	}
 
-	NodeRecord *rec = &nodes[p_id];
-	if (rec->node == nullptr || !rec->node->is_inside_tree()) {
+	godot::Node3D *node = _resolve_node3d(p_id);
+	if (node == nullptr || !node->is_inside_tree()) {
 		return nullptr;
 	}
 
-	return rec->node;
+	return node;
 }
 
 } // namespace luagd

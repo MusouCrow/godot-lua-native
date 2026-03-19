@@ -19,6 +19,7 @@
 #include <godot_cpp/classes/animation_tree.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node3d.hpp>
+#include <godot_cpp/core/object_id.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/templates/vector.hpp>
@@ -97,7 +98,7 @@ struct LayerRecord {
 
 struct AnimatorRecord {
 	int32_t id;
-	int32_t owner_node_id;
+	godot::ObjectID owner_node_id;
 	godot::AnimationPlayer *animation_player;
 	godot::AnimationTree *animation_tree;
 	godot::Ref<godot::AnimationNodeBlendTree> tree_root;
@@ -549,7 +550,7 @@ static int l_create_animator(lua_State *p_L) {
 		return 1;
 	}
 
-	int32_t owner_node_id = (int32_t)luaL_checkinteger(p_L, 1);
+	godot::ObjectID owner_node_id((uint64_t)luaL_checkinteger(p_L, 1));
 	godot::Node3D *owner = node_resolve(owner_node_id);
 	if (owner == nullptr) {
 		godot::UtilityFunctions::printerr("native_anim.create_animator: invalid owner node id ", owner_node_id);
@@ -1112,15 +1113,6 @@ int luaopen_native_anim(lua_State *p_L) {
 }
 
 void anim_cleanup() {
-	for (const godot::KeyValue<int32_t, AnimatorRecord> &kv : animators) {
-		const AnimatorRecord &animator = kv.value;
-		if (animator.animation_player != nullptr) {
-			animator.animation_player->queue_free();
-		}
-		if (animator.animation_tree != nullptr) {
-			animator.animation_tree->queue_free();
-		}
-	}
 	animators.clear();
 	next_animator_id = 1;
 }
