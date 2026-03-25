@@ -106,6 +106,40 @@ function M.set_layer_weight(animator_id, layer_name, weight) end
 ---@return boolean success 是否成功
 function M.set_layer_speed(animator_id, layer_name, speed) end
 
+--- native_anim.get_layer_position(animator_id, layer_name) -> number
+--- 读取当前 active_slot 对应 Layer 的播放位置，单位为秒。
+--- 必须在 native_anim.update() 之后读取，才能拿到当帧最新结果。
+--- 该接口主要给 Lua 动画封装使用，不建议业务层直接调用 native 模块。
+---@param animator_id integer Animator id
+---@param layer_name string Layer 名称
+---@return number position 当前 Layer 播放位置，失败返回 0.0
+function M.get_layer_position(animator_id, layer_name) end
+
+--- native_anim.get_layer_length(animator_id, layer_name) -> number
+--- 读取当前 active_slot 对应 Layer 的动画长度，单位为秒。
+--- 必须在 native_anim.update() 之后读取，才能拿到当帧最新结果。
+--- 该接口主要给 Lua 动画封装使用，不建议业务层直接调用 native 模块。
+---@param animator_id integer Animator id
+---@param layer_name string Layer 名称
+---@return number length 当前 Layer 动画长度，失败返回 0.0
+function M.get_layer_length(animator_id, layer_name) end
+
+--- native_anim.is_layer_playing(animator_id, layer_name) -> bool
+--- 返回当前 active_slot 是否处于播放状态。
+--- 该接口主要给 Lua 动画封装使用，不建议业务层直接调用 native 模块。
+---@param animator_id integer Animator id
+---@param layer_name string Layer 名称
+---@return boolean playing 当前 Layer 是否正在播放
+function M.is_layer_playing(animator_id, layer_name) end
+
+--- native_anim.is_layer_fading(animator_id, layer_name) -> bool
+--- 返回当前 Layer 是否仍处于切换过渡期。
+--- 该接口主要给 Lua 动画封装使用，不建议业务层直接调用 native 模块。
+---@param animator_id integer Animator id
+---@param layer_name string Layer 名称
+---@return boolean fading 当前 Layer 是否仍在淡入淡出
+function M.is_layer_fading(animator_id, layer_name) end
+
 --- native_anim.update(animator_id, delta) -> bool
 ---@param animator_id integer Animator id
 ---@param delta number 帧推进时间

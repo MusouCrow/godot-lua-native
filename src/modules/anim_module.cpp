@@ -123,6 +123,10 @@ static void _push_bool(lua_State *p_L, bool p_value) {
 	lua_pushboolean(p_L, p_value);
 }
 
+static void _push_number(lua_State *p_L, double p_value) {
+	lua_pushnumber(p_L, p_value);
+}
+
 static bool _is_valid_mix_mode(int32_t p_mix_mode) {
 	return p_mix_mode == MIX_BLEND || p_mix_mode == MIX_ADD;
 }
@@ -425,6 +429,35 @@ static SlotRecord *_layer_slot(LayerRecord *p_layer, int32_t p_slot_index) {
 		return nullptr;
 	}
 	return p_slot_index == SLOT_A ? &p_layer->slot_a : &p_layer->slot_b;
+}
+
+static SlotRecord *_get_active_slot(LayerRecord *p_layer) {
+	if (p_layer == nullptr) {
+		return nullptr;
+	}
+	return _layer_slot(p_layer, p_layer->active_slot);
+}
+
+static bool _read_slot_time_value(AnimatorRecord *p_animator, SlotRecord *p_slot, const char *p_property, const char *p_func_name, double *r_value) {
+	if (r_value == nullptr) {
+		return false;
+	}
+	*r_value = 0.0;
+	if (p_animator == nullptr || p_animator->animation_tree == nullptr || p_slot == nullptr || p_slot->time_scale_node_name.is_empty()) {
+		godot::UtilityFunctions::printerr("native_anim.", p_func_name, ": active slot is not available");
+		return false;
+	}
+
+	const godot::String path = _param_path(p_slot->time_scale_node_name, p_property);
+	const godot::Variant value = p_animator->animation_tree->get(path);
+	const godot::Variant::Type value_type = value.get_type();
+	if (value_type != godot::Variant::FLOAT && value_type != godot::Variant::INT) {
+		godot::UtilityFunctions::printerr("native_anim.", p_func_name, ": failed to read tree parameter ", path);
+		return false;
+	}
+
+	*r_value = (double)value;
+	return true;
 }
 
 static void _start_layer_fade(AnimatorRecord *p_animator, LayerRecord *p_layer, int32_t p_target_slot, double p_fade_time) {
@@ -1039,6 +1072,103 @@ static int l_set_layer_speed(lua_State *p_L) {
 	return 1;
 }
 
+static int l_get_layer_position(lua_State *p_L) {
+	if (!_ensure_main_thread("get_layer_position")) {
+		_push_number(p_L, 0.0);
+		return 1;
+	}
+
+	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
+	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
+	AnimatorRecord *animator = _get_animator(animator_id, "get_layer_position");
+	if (animator == nullptr) {
+		_push_number(p_L, 0.0);
+		return 1;
+	}
+	LayerRecord *layer = _get_layer(animator, godot::StringName(layer_name_cstr), "get_layer_position");
+	if (layer == nullptr) {
+		_push_number(p_L, 0.0);
+		return 1;
+	}
+
+	double position = 0.0;
+	_read_slot_time_value(animator, _get_active_slot(layer), "current_position", "get_layer_position", &position);
+	_push_number(p_L, position);
+	return 1;
+}
+
+static int l_get_layer_length(lua_State *p_L) {
+	if (!_ensure_main_thread("get_layer_length")) {
+		_push_number(p_L, 0.0);
+		return 1;
+	}
+
+	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
+	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
+	AnimatorRecord *animator = _get_animator(animator_id, "get_layer_length");
+	if (animator == nullptr) {
+		_push_number(p_L, 0.0);
+		return 1;
+	}
+	LayerRecord *layer = _get_layer(animator, godot::StringName(layer_name_cstr), "get_layer_length");
+	if (layer == nullptr) {
+		_push_number(p_L, 0.0);
+		return 1;
+	}
+
+	double length = 0.0;
+	_read_slot_time_value(animator, _get_active_slot(layer), "current_length", "get_layer_length", &length);
+	_push_number(p_L, length);
+	return 1;
+}
+
+static int l_is_layer_playing(lua_State *p_L) {
+	if (!_ensure_main_thread("is_layer_playing")) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
+	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
+	AnimatorRecord *animator = _get_animator(animator_id, "is_layer_playing");
+	if (animator == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+	LayerRecord *layer = _get_layer(animator, godot::StringName(layer_name_cstr), "is_layer_playing");
+	if (layer == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	SlotRecord *slot = _get_active_slot(layer);
+	_push_bool(p_L, slot != nullptr && slot->playing);
+	return 1;
+}
+
+static int l_is_layer_fading(lua_State *p_L) {
+	if (!_ensure_main_thread("is_layer_fading")) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
+	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
+	AnimatorRecord *animator = _get_animator(animator_id, "is_layer_fading");
+	if (animator == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+	LayerRecord *layer = _get_layer(animator, godot::StringName(layer_name_cstr), "is_layer_fading");
+	if (layer == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	_push_bool(p_L, layer->fading);
+	return 1;
+}
+
 // 由 Lua 显式推进 fade 和 AnimationTree。
 static int l_update(lua_State *p_L) {
 	if (!_ensure_main_thread("update")) {
@@ -1095,6 +1225,10 @@ static const luaL_Reg anim_funcs[] = {
 	{"set_blend2d_params", l_set_blend2d_params},
 	{"set_layer_weight", l_set_layer_weight},
 	{"set_layer_speed", l_set_layer_speed},
+	{"get_layer_position", l_get_layer_position},
+	{"get_layer_length", l_get_layer_length},
+	{"is_layer_playing", l_is_layer_playing},
+	{"is_layer_fading", l_is_layer_fading},
 	{"update", l_update},
 	{nullptr, nullptr}
 };
