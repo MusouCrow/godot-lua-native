@@ -106,6 +106,22 @@ function M.set_layer_weight(animator_id, layer_name, weight) end
 ---@return boolean success 是否成功
 function M.set_layer_speed(animator_id, layer_name, speed) end
 
+--- native_anim.clear_layer_mask(animator_id, layer_name) -> bool
+--- 清空 Layer 当前所有 mask path。
+---@param animator_id integer Animator id
+---@param layer_name string Layer 名称
+---@return boolean success 是否成功
+function M.clear_layer_mask(animator_id, layer_name) end
+
+--- native_anim.set_layer_mask_path(animator_id, layer_name, path, enable) -> bool
+--- 对 Layer 增删单条 mask path；path 需要使用动画轨道的实际 NodePath。
+---@param animator_id integer Animator id
+---@param layer_name string Layer 名称
+---@param path string 动画轨道路径，例如 "target_a:position"
+---@param enable boolean true 为添加，false 为移除
+---@return boolean success 是否成功
+function M.set_layer_mask_path(animator_id, layer_name, path, enable) end
+
 --- native_anim.get_layer_position(animator_id, layer_name) -> number
 --- 读取当前 active_slot 对应 Layer 的播放位置，单位为秒。
 --- 必须在 native_anim.update() 之后读取，才能拿到当帧最新结果。

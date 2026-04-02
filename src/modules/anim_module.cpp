@@ -91,6 +91,7 @@ struct LayerRecord {
 	SlotRecord slot_b;
 	godot::StringName slot_switch_node_name;
 	godot::StringName layer_mix_node_name;
+	godot::Vector<godot::NodePath> mask_paths;
 	godot::Vector<Blend2DPointRecord> blend2d_points;
 	double blend2d_x;
 	double blend2d_y;
@@ -281,6 +282,61 @@ static void _set_slot_blend_position_runtime(AnimatorRecord *p_animator, LayerRe
 		_param_path(p_slot->source_node_name, "blend_position"),
 		godot::Vector2((float)p_layer->blend2d_x, (float)p_layer->blend2d_y)
 	);
+}
+
+static int32_t _find_mask_path_index(const godot::Vector<godot::NodePath> &p_paths, const godot::NodePath &p_path) {
+	for (int32_t i = 0; i < p_paths.size(); i++) {
+		if (p_paths[i] == p_path) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+static godot::Ref<godot::AnimationNode> _get_layer_mix_node(AnimatorRecord *p_animator, LayerRecord *p_layer, const char *p_func_name) {
+	if (p_animator == nullptr || p_layer == nullptr || p_animator->tree_root.is_null()) {
+		return godot::Ref<godot::AnimationNode>();
+	}
+	if (!p_animator->tree_root->has_node(p_layer->layer_mix_node_name)) {
+		godot::UtilityFunctions::printerr("native_anim.", p_func_name, ": layer mix node not found: ", godot::String(p_layer->layer_mix_node_name));
+		return godot::Ref<godot::AnimationNode>();
+	}
+	return p_animator->tree_root->get_node(p_layer->layer_mix_node_name);
+}
+
+static bool _apply_layer_mask_runtime(AnimatorRecord *p_animator, LayerRecord *p_layer) {
+	if (p_animator == nullptr || p_layer == nullptr) {
+		return false;
+	}
+
+	const godot::Ref<godot::AnimationNode> layer_mix = _get_layer_mix_node(p_animator, p_layer, "set_layer_mask_path");
+	if (layer_mix.is_null()) {
+		return false;
+	}
+
+	for (int32_t i = 0; i < p_layer->mask_paths.size(); i++) {
+		layer_mix->set_filter_path(p_layer->mask_paths[i], true);
+	}
+	layer_mix->set_filter_enabled(!p_layer->mask_paths.is_empty());
+	return true;
+}
+
+static bool _clear_layer_mask(AnimatorRecord *p_animator, LayerRecord *p_layer) {
+	if (p_animator == nullptr || p_layer == nullptr) {
+		return false;
+	}
+
+	const godot::Ref<godot::AnimationNode> layer_mix = _get_layer_mix_node(p_animator, p_layer, "clear_layer_mask");
+	if (layer_mix.is_null()) {
+		return false;
+	}
+
+	for (int32_t i = 0; i < p_layer->mask_paths.size(); i++) {
+		layer_mix->set_filter_path(p_layer->mask_paths[i], false);
+	}
+	p_layer->mask_paths.clear();
+	layer_mix->set_filter_enabled(false);
+	return true;
 }
 
 static void _slot_reset(SlotRecord *p_slot) {
@@ -1072,6 +1128,76 @@ static int l_set_layer_speed(lua_State *p_L) {
 	return 1;
 }
 
+static int l_clear_layer_mask(lua_State *p_L) {
+	if (!_ensure_main_thread("clear_layer_mask")) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
+	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
+	AnimatorRecord *animator = _get_animator(animator_id, "clear_layer_mask");
+	if (animator == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+	LayerRecord *layer = _get_layer(animator, godot::StringName(layer_name_cstr), "clear_layer_mask");
+	if (layer == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	_push_bool(p_L, _clear_layer_mask(animator, layer));
+	return 1;
+}
+
+static int l_set_layer_mask_path(lua_State *p_L) {
+	if (!_ensure_main_thread("set_layer_mask_path")) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
+	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
+	const char *path_cstr = luaL_checkstring(p_L, 3);
+	bool enable = lua_toboolean(p_L, 4) != 0;
+
+	AnimatorRecord *animator = _get_animator(animator_id, "set_layer_mask_path");
+	if (animator == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+	LayerRecord *layer = _get_layer(animator, godot::StringName(layer_name_cstr), "set_layer_mask_path");
+	if (layer == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	const godot::NodePath mask_path(path_cstr);
+	const int32_t path_index = _find_mask_path_index(layer->mask_paths, mask_path);
+	if (enable) {
+		if (path_index < 0) {
+			layer->mask_paths.push_back(mask_path);
+		}
+		_push_bool(p_L, _apply_layer_mask_runtime(animator, layer));
+		return 1;
+	}
+
+	if (path_index >= 0) {
+		const godot::Ref<godot::AnimationNode> layer_mix = _get_layer_mix_node(animator, layer, "set_layer_mask_path");
+		if (layer_mix.is_null()) {
+			_push_bool(p_L, false);
+			return 1;
+		}
+		layer_mix->set_filter_path(mask_path, false);
+		layer->mask_paths.remove_at(path_index);
+		layer_mix->set_filter_enabled(!layer->mask_paths.is_empty());
+	}
+
+	_push_bool(p_L, true);
+	return 1;
+}
+
 static int l_get_layer_position(lua_State *p_L) {
 	if (!_ensure_main_thread("get_layer_position")) {
 		_push_number(p_L, 0.0);
@@ -1225,6 +1351,8 @@ static const luaL_Reg anim_funcs[] = {
 	{"set_blend2d_params", l_set_blend2d_params},
 	{"set_layer_weight", l_set_layer_weight},
 	{"set_layer_speed", l_set_layer_speed},
+	{"clear_layer_mask", l_clear_layer_mask},
+	{"set_layer_mask_path", l_set_layer_mask_path},
 	{"get_layer_position", l_get_layer_position},
 	{"get_layer_length", l_get_layer_length},
 	{"is_layer_playing", l_is_layer_playing},
