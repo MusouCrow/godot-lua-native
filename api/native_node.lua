@@ -25,6 +25,7 @@ function M.instantiate(scene_path) end
 --- 对于通过 instantiate 创建的节点，调用 queue_free 销毁节点。
 --- 对于通过 get_child_by_path 获取的节点，仅释放引用。
 ---@param id integer 节点句柄
+---@return nil id 无效时通常会被底层忽略
 function M.destroy(id) end
 
 --- native_node.get_child_by_path(id, path) -> int
@@ -51,6 +52,7 @@ function M.is_valid(id) end
 ---@param y number Y 坐标
 ---@param z number Z 坐标
 ---@param is_global? boolean true 为世界坐标，false 为局部坐标（默认 false）
+---@return nil id 无效时通常会被底层忽略
 function M.set_position(id, x, y, z, is_global) end
 
 --- native_node.get_position(id, is_global) -> number, number, number
@@ -73,6 +75,7 @@ function M.get_position(id, is_global) end
 ---@param y number Y 轴旋转（度数）
 ---@param z number Z 轴旋转（度数）
 ---@param is_global? boolean true 为世界旋转，false 为局部旋转（默认 false）
+---@return nil id 无效时通常会被底层忽略
 function M.set_rotation(id, x, y, z, is_global) end
 
 --- native_node.get_rotation(id, is_global) -> number, number, number
@@ -91,6 +94,7 @@ function M.get_rotation(id, is_global) end
 ---@param target_y number 目标 Y 坐标
 ---@param target_z number 目标 Z 坐标
 ---@param use_model_front? boolean true 时 +Z 轴指向目标（模型前向），false 时 -Z 轴指向目标（默认 false）
+---@return nil id 无效时通常会被底层忽略
 function M.look_at(id, target_x, target_y, target_z, use_model_front) end
 
 --- native_node.get_forward(id, is_global, use_model_front) -> number, number, number
@@ -123,6 +127,7 @@ function M.move_and_slide(id) end
 ---@param x number X 方向速度
 ---@param y number Y 方向速度
 ---@param z number Z 方向速度
+---@return nil id 无效或节点类型不匹配时通常会被底层忽略
 function M.set_velocity(id, x, y, z) end
 
 --- native_node.get_velocity(id) -> number, number, number
@@ -203,6 +208,7 @@ function M.get_type(id) end
 --- 仅对 Camera3D 节点有效。
 ---@param id integer 节点句柄
 ---@param fov number 视场角（度）
+---@return nil id 无效或节点类型不匹配时通常会被底层忽略
 function M.set_fov(id, fov) end
 
 --- native_node.get_fov(id) -> number

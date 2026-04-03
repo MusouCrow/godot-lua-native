@@ -33,6 +33,7 @@ function M.create_player(is_spatial) end
 --- native_audio.destroy_player(id) -> void
 --- 销毁播放器，从场景树移除。
 ---@param id integer 播放器 ID
+---@return nil id 无效时通常会被底层忽略
 function M.destroy_player(id) end
 
 -- ============================================================================
@@ -49,11 +50,13 @@ function M.set_stream(id, path) end
 --- native_audio.play(id) -> void
 --- 播放音频。
 ---@param id integer 播放器 ID
+---@return nil id 无效或未设置流时通常会被底层忽略
 function M.play(id) end
 
 --- native_audio.stop(id) -> void
 --- 停止播放。
 ---@param id integer 播放器 ID
+---@return nil id 无效时通常会被底层忽略
 function M.stop(id) end
 
 --- native_audio.is_playing(id) -> bool
@@ -66,6 +69,7 @@ function M.is_playing(id) end
 --- 设置播放器暂停状态。
 ---@param id integer 播放器 ID
 ---@param paused boolean 是否暂停
+---@return nil id 无效时通常会被底层忽略
 function M.set_paused(id, paused) end
 
 --- native_audio.is_paused(id) -> bool
@@ -78,18 +82,21 @@ function M.is_paused(id) end
 --- 设置播放器音量（线性 0-1）。
 ---@param id integer 播放器 ID
 ---@param volume number 音量（线性 0-1），1.0 为原始音量，0 为静音
+---@return nil id 无效时通常会被底层忽略
 function M.set_volume(id, volume) end
 
 --- native_audio.set_pitch(id, pitch) -> void
 --- 设置播放器音调倍率。
 ---@param id integer 播放器 ID
 ---@param pitch number 音调倍率，1.0 为原始音调
+---@return nil id 无效时通常会被底层忽略
 function M.set_pitch(id, pitch) end
 
 --- native_audio.set_bus(id, bus_name) -> void
 --- 设置播放器的 AudioBus。
 ---@param id integer 播放器 ID
 ---@param bus_name string AudioBus 名称
+---@return nil id 或 bus_name 无效时通常会被底层忽略
 function M.set_bus(id, bus_name) end
 
 --- native_audio.set_position(id, x, y, z) -> void
@@ -98,12 +105,14 @@ function M.set_bus(id, bus_name) end
 ---@param x number X 坐标
 ---@param y number Y 坐标
 ---@param z number Z 坐标
+---@return nil 非空间播放器或无效 id 时通常会被底层忽略
 function M.set_position(id, x, y, z) end
 
 --- native_audio.set_loop(id, enabled) -> void
 --- 设置音频循环播放（仅支持 MP3 和 OGG 格式）。
 ---@param id integer 播放器 ID
 ---@param enabled boolean 是否循环
+---@return nil id 无效或资源不支持时通常会被底层忽略
 function M.set_loop(id, enabled) end
 
 -- ============================================================================
@@ -121,17 +130,19 @@ function M.add_bus(name) end
 --- 设置 AudioBus 音量（线性 0-1）。
 ---@param name string AudioBus 名称
 ---@param volume number 音量（线性 0-1）
+---@return nil bus 不存在时通常会被底层忽略
 function M.set_bus_volume(name, volume) end
 
 --- native_audio.get_bus_volume(name) -> number
 --- 获取 AudioBus 音量（线性 0-1）。
 ---@param name string AudioBus 名称
----@return number volume 音量（线性 0-1）
+---@return number volume 音量（线性 0-1），bus 不存在时返回底层默认值
 function M.get_bus_volume(name) end
 
 --- native_audio.set_master_volume(volume) -> void
 --- 设置主音量（线性 0-1）。
 ---@param volume number 音量（线性 0-1）
+---@return nil 底层会按宿主策略裁剪或应用该值
 function M.set_master_volume(volume) end
 
 --- native_audio.get_master_volume() -> number

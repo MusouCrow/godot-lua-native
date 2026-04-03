@@ -25,15 +25,19 @@ function M.create_animator(owner_node_id) end
 function M.add_animation_library(animator_id, library_name, library_path) end
 
 --- native_anim.destroy_animator(animator_id) -> void
+--- 销毁 Animator 及其内部挂载的动画节点。
 ---@param animator_id integer Animator id
+---@return nil animator_id 无效时通常会被底层忽略
 function M.destroy_animator(animator_id) end
 
 --- native_anim.is_animator_valid(animator_id) -> bool
+--- 检查 Animator 句柄是否仍然有效。
 ---@param animator_id integer Animator id
 ---@return boolean valid 是否有效
 function M.is_animator_valid(animator_id) end
 
 --- native_anim.create_layer(animator_id, layer_name, mix_mode, order, flags) -> bool
+--- 为 Animator 创建一个新的播放 Layer。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@param mix_mode integer 混合模式，使用 MIX_* 常量
@@ -43,18 +47,21 @@ function M.is_animator_valid(animator_id) end
 function M.create_layer(animator_id, layer_name, mix_mode, order, flags) end
 
 --- native_anim.destroy_layer(animator_id, layer_name) -> bool
+--- 销毁指定 Layer 及其混合节点。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@return boolean success 是否成功
 function M.destroy_layer(animator_id, layer_name) end
 
 --- native_anim.has_layer(animator_id, layer_name) -> bool
+--- 检查 Animator 中是否存在指定 Layer。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@return boolean has_layer 是否存在
 function M.has_layer(animator_id, layer_name) end
 
 --- native_anim.play(animator_id, layer_name, anim_name, fade_time) -> bool
+--- 在指定 Layer 上播放动画或停止当前动画。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@param anim_name string 动画名；传空字符串时等价于停止该 Layer
@@ -63,12 +70,14 @@ function M.has_layer(animator_id, layer_name) end
 function M.play(animator_id, layer_name, anim_name, fade_time) end
 
 --- native_anim.clear_blend2d(animator_id, layer_name) -> bool
+--- 清空指定 Layer 的 Blend2D 采样点。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@return boolean success 是否成功
 function M.clear_blend2d(animator_id, layer_name) end
 
 --- native_anim.set_blend2d_point(animator_id, layer_name, anim_name, x, y) -> bool
+--- 为指定 Layer 注册一个 Blend2D 采样点。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@param anim_name string 动画名
@@ -78,6 +87,7 @@ function M.clear_blend2d(animator_id, layer_name) end
 function M.set_blend2d_point(animator_id, layer_name, anim_name, x, y) end
 
 --- native_anim.play_blend2d(animator_id, layer_name, fade_time) -> bool
+--- 在指定 Layer 上切换到 Blend2D 播放模式。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@param fade_time? number 淡入时间
@@ -85,6 +95,7 @@ function M.set_blend2d_point(animator_id, layer_name, anim_name, x, y) end
 function M.play_blend2d(animator_id, layer_name, fade_time) end
 
 --- native_anim.set_blend2d_params(animator_id, layer_name, x, y) -> bool
+--- 更新指定 Layer 的 Blend2D 输入参数。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@param x number Blend2D X 输入
@@ -93,6 +104,7 @@ function M.play_blend2d(animator_id, layer_name, fade_time) end
 function M.set_blend2d_params(animator_id, layer_name, x, y) end
 
 --- native_anim.set_layer_weight(animator_id, layer_name, weight) -> bool
+--- 设置指定 Layer 的混合权重。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@param weight number Layer 权重
@@ -100,6 +112,7 @@ function M.set_blend2d_params(animator_id, layer_name, x, y) end
 function M.set_layer_weight(animator_id, layer_name, weight) end
 
 --- native_anim.set_layer_speed(animator_id, layer_name, speed) -> bool
+--- 设置指定 Layer 的播放速度倍率。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@param speed number Layer 速度
@@ -157,6 +170,7 @@ function M.is_layer_playing(animator_id, layer_name) end
 function M.is_layer_fading(animator_id, layer_name) end
 
 --- native_anim.update(animator_id, delta) -> bool
+--- 推进 Animator 一帧并刷新各 Layer 运行时状态。
 ---@param animator_id integer Animator id
 ---@param delta number 帧推进时间
 ---@return boolean success 是否成功

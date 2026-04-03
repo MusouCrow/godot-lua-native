@@ -17,6 +17,7 @@ function M.load(path) end
 --- native_res.unload(path) -> void
 --- 卸载资源，释放引用。
 ---@param path string 资源路径
+---@return nil 资源未加载时通常会被底层忽略
 function M.unload(path) end
 
 --- native_res.is_loaded(path) -> boolean
