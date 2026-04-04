@@ -20,7 +20,7 @@ static const char *INPUT_CALLBACK_KEY = "native_input.input_callback";
 
 // native_input.bind_input(func) -> void
 // 绑定输入回调函数。
-// func: 接收 (action, pressed, strength, device_type) 参数的函数。
+// func: 接收 (action_name, pressed, strength, device_type) 参数的函数。
 static int l_bind_input(lua_State *p_L) {
 	int argc = lua_gettop(p_L);
 	if (argc < 1) {
@@ -40,109 +40,109 @@ static int l_bind_input(lua_State *p_L) {
 	return 0;
 }
 
-// native_input.is_pressed(action) -> bool
-// 返回 action 是否刚刚按下（按下瞬间）。
+// native_input.is_pressed(action_name) -> bool
+// 返回 action_name 是否刚刚按下（按下瞬间）。
 static int l_is_pressed(lua_State *p_L) {
 	int argc = lua_gettop(p_L);
 	if (argc < 1) {
-		godot::UtilityFunctions::printerr("native_input.is_pressed: expected 1 argument (action), got ", argc);
+		godot::UtilityFunctions::printerr("native_input.is_pressed: expected 1 argument (action_name), got ", argc);
 		lua_pushboolean(p_L, false);
 		return 1;
 	}
 
-	const char *action = luaL_checkstring(p_L, 1);
+	const char *action_name = luaL_checkstring(p_L, 1);
 	godot::Input *input = godot::Input::get_singleton();
-	bool result = input->is_action_just_pressed(action);
+	bool result = input->is_action_just_pressed(action_name);
 	lua_pushboolean(p_L, result);
 	return 1;
 }
 
-// native_input.is_hold(action) -> bool
-// 返回 action 是否持续按住。
+// native_input.is_hold(action_name) -> bool
+// 返回 action_name 是否持续按住。
 static int l_is_hold(lua_State *p_L) {
 	int argc = lua_gettop(p_L);
 	if (argc < 1) {
-		godot::UtilityFunctions::printerr("native_input.is_hold: expected 1 argument (action), got ", argc);
+		godot::UtilityFunctions::printerr("native_input.is_hold: expected 1 argument (action_name), got ", argc);
 		lua_pushboolean(p_L, false);
 		return 1;
 	}
 
-	const char *action = luaL_checkstring(p_L, 1);
+	const char *action_name = luaL_checkstring(p_L, 1);
 	godot::Input *input = godot::Input::get_singleton();
-	bool result = input->is_action_pressed(action);
+	bool result = input->is_action_pressed(action_name);
 	lua_pushboolean(p_L, result);
 	return 1;
 }
 
-// native_input.is_released(action) -> bool
-// 返回 action 是否刚刚弹起（弹起瞬间）。
+// native_input.is_released(action_name) -> bool
+// 返回 action_name 是否刚刚弹起（弹起瞬间）。
 static int l_is_released(lua_State *p_L) {
 	int argc = lua_gettop(p_L);
 	if (argc < 1) {
-		godot::UtilityFunctions::printerr("native_input.is_released: expected 1 argument (action), got ", argc);
+		godot::UtilityFunctions::printerr("native_input.is_released: expected 1 argument (action_name), got ", argc);
 		lua_pushboolean(p_L, false);
 		return 1;
 	}
 
-	const char *action = luaL_checkstring(p_L, 1);
+	const char *action_name = luaL_checkstring(p_L, 1);
 	godot::Input *input = godot::Input::get_singleton();
-	bool result = input->is_action_just_released(action);
+	bool result = input->is_action_just_released(action_name);
 	lua_pushboolean(p_L, result);
 	return 1;
 }
 
-// native_input.get_strength(action) -> float
-// 返回 action 的力度 (0.0~1.0)。
+// native_input.get_strength(action_name) -> float
+// 返回 action_name 的力度 (0.0~1.0)。
 static int l_get_strength(lua_State *p_L) {
 	int argc = lua_gettop(p_L);
 	if (argc < 1) {
-		godot::UtilityFunctions::printerr("native_input.get_strength: expected 1 argument (action), got ", argc);
+		godot::UtilityFunctions::printerr("native_input.get_strength: expected 1 argument (action_name), got ", argc);
 		lua_pushnumber(p_L, 0.0);
 		return 1;
 	}
 
-	const char *action = luaL_checkstring(p_L, 1);
+	const char *action_name = luaL_checkstring(p_L, 1);
 	godot::Input *input = godot::Input::get_singleton();
-	double result = input->get_action_strength(action);
+	double result = input->get_action_strength(action_name);
 	lua_pushnumber(p_L, result);
 	return 1;
 }
 
-// native_input.get_axis(neg_action, pos_action) -> float
+// native_input.get_axis(neg_action_name, pos_action_name) -> float
 // 返回轴值 (-1.0~1.0)。
 static int l_get_axis(lua_State *p_L) {
 	int argc = lua_gettop(p_L);
 	if (argc < 2) {
-		godot::UtilityFunctions::printerr("native_input.get_axis: expected 2 arguments (neg_action, pos_action), got ", argc);
+		godot::UtilityFunctions::printerr("native_input.get_axis: expected 2 arguments (neg_action_name, pos_action_name), got ", argc);
 		lua_pushnumber(p_L, 0.0);
 		return 1;
 	}
 
-	const char *neg_action = luaL_checkstring(p_L, 1);
-	const char *pos_action = luaL_checkstring(p_L, 2);
+	const char *neg_action_name = luaL_checkstring(p_L, 1);
+	const char *pos_action_name = luaL_checkstring(p_L, 2);
 	godot::Input *input = godot::Input::get_singleton();
-	double result = input->get_axis(neg_action, pos_action);
+	double result = input->get_axis(neg_action_name, pos_action_name);
 	lua_pushnumber(p_L, result);
 	return 1;
 }
 
-// native_input.get_vector(left, right, up, down) -> x, y
+// native_input.get_vector(left_action_name, right_action_name, up_action_name, down_action_name) -> x, y
 // 返回归一化 2D 向量。
 static int l_get_vector(lua_State *p_L) {
 	int argc = lua_gettop(p_L);
 	if (argc < 4) {
-		godot::UtilityFunctions::printerr("native_input.get_vector: expected 4 arguments (left, right, up, down), got ", argc);
+		godot::UtilityFunctions::printerr("native_input.get_vector: expected 4 arguments (left_action_name, right_action_name, up_action_name, down_action_name), got ", argc);
 		lua_pushnumber(p_L, 0.0);
 		lua_pushnumber(p_L, 0.0);
 		return 2;
 	}
 
-	const char *left = luaL_checkstring(p_L, 1);
-	const char *right = luaL_checkstring(p_L, 2);
-	const char *up = luaL_checkstring(p_L, 3);
-	const char *down = luaL_checkstring(p_L, 4);
+	const char *left_action_name = luaL_checkstring(p_L, 1);
+	const char *right_action_name = luaL_checkstring(p_L, 2);
+	const char *up_action_name = luaL_checkstring(p_L, 3);
+	const char *down_action_name = luaL_checkstring(p_L, 4);
 	godot::Input *input = godot::Input::get_singleton();
-	godot::Vector2 result = input->get_vector(left, right, up, down);
+	godot::Vector2 result = input->get_vector(left_action_name, right_action_name, up_action_name, down_action_name);
 	lua_pushnumber(p_L, result.x);
 	lua_pushnumber(p_L, result.y);
 	return 2;
@@ -229,20 +229,20 @@ void input_dispatch_event(lua_State *p_L, const godot::InputEvent *p_event) {
 		return;
 	}
 
-	// 遍历所有已注册的 Action
+	// 遍历所有已注册的 action_name
 	godot::TypedArray<godot::StringName> actions = input_map->get_actions();
 	const char *device_type = get_device_type(p_event);
 
 	for (int i = 0; i < actions.size(); ++i) {
 		godot::StringName action_name = actions[i];
 
-		// 跳过内置 UI action（以 "ui_" 开头）
+		// 跳过内置 UI action_name（以 "ui_" 开头）
 		godot::String action_str = godot::String(action_name);
 		if (action_str.begins_with("ui_")) {
 			continue;
 		}
 
-		// 检查事件是否匹配此 action
+		// 检查事件是否匹配此 action_name
 		if (!p_event->is_action(action_name)) {
 			continue;
 		}
@@ -255,8 +255,8 @@ void input_dispatch_event(lua_State *p_L, const godot::InputEvent *p_event) {
 		lua_pushvalue(p_L, -1);
 
 		// 压入参数
-		godot::CharString utf8_action = action_str.utf8();
-		lua_pushstring(p_L, utf8_action.get_data());
+		godot::CharString utf8_action_name = action_str.utf8();
+		lua_pushstring(p_L, utf8_action_name.get_data());
 		lua_pushboolean(p_L, pressed);
 		lua_pushnumber(p_L, strength);
 		lua_pushstring(p_L, device_type);

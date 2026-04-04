@@ -94,13 +94,13 @@ end)
 
 | Function | Description |
 |----------|-------------|
-| `bind_input(func)` | Bind input callback `(action, pressed, strength, device_type)` |
-| `is_pressed(action)` | Returns true on press frame |
-| `is_hold(action)` | Returns true while held |
-| `is_released(action)` | Returns true on release frame |
-| `get_strength(action)` | Returns action strength (0.0~1.0) |
-| `get_axis(neg, pos)` | Returns axis value (-1.0~1.0) |
-| `get_vector(left, right, up, down)` | Returns normalized 2D vector (x, y) |
+| `bind_input(func)` | Bind input callback `(action_name, pressed, strength, device_type)` |
+| `is_pressed(action_name)` | Returns true on press frame |
+| `is_hold(action_name)` | Returns true while held |
+| `is_released(action_name)` | Returns true on release frame |
+| `get_strength(action_name)` | Returns action strength (0.0~1.0) |
+| `get_axis(neg_action_name, pos_action_name)` | Returns axis value (-1.0~1.0) |
+| `get_vector(left_action_name, right_action_name, up_action_name, down_action_name)` | Returns normalized 2D vector (x, y) |
 | `vibrate(weak, strong, duration)` | Trigger controller vibration |
 
 ### native_display
