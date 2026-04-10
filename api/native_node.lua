@@ -41,6 +41,18 @@ function M.get_child_by_path(id, path) end
 ---@return boolean valid 是否有效
 function M.is_valid(id) end
 
+--- native_node.set_param_color_in_group(id, group_name, param_name, r, g, b, a) -> boolean
+--- 在当前节点子树内，按组为所有 GeometryInstance3D 设置实例着色器颜色参数。
+---@param id integer 根节点句柄
+---@param group_name string 节点组名称
+---@param param_name string 实例着色器参数名
+---@param r number 红色分量
+---@param g number 绿色分量
+---@param b number 蓝色分量
+---@param a number Alpha 分量
+---@return boolean success 本次是否至少成功作用到一个 GeometryInstance3D
+function M.set_param_color_in_group(id, group_name, param_name, r, g, b, a) end
+
 -- ============================================================================
 -- 位置
 -- ============================================================================

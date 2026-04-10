@@ -1,7 +1,10 @@
 #include "node_module.h"
 
+#include "../host/host_thread_check.h"
+
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/character_body3d.hpp>
+#include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
@@ -12,6 +15,8 @@
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/object_id.hpp>
 #include <godot_cpp/templates/hash_set.hpp>
+#include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/variant/node_path.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -47,6 +52,11 @@ struct NodeRecord {
 static godot::HashMap<godot::ObjectID, NodeRecord> nodes;
 static godot::HashMap<godot::ObjectID, godot::HashSet<godot::ObjectID>> root_children;
 static godot::ObjectID root_node_id;
+
+// 统一处理 native_node 的主线程约束。
+static bool _ensure_main_thread(const char *p_func_name) {
+	return ensure_main_thread(godot::String("native_node.") + p_func_name);
+}
 
 static godot::ObjectID _read_object_id(lua_State *p_L, int p_index) {
 	return godot::ObjectID((uint64_t)luaL_checkinteger(p_L, p_index));
@@ -345,6 +355,67 @@ static int l_is_valid(lua_State *p_L) {
 	godot::Node3D *node = _resolve_node3d(id);
 	bool valid = node != nullptr && node->is_inside_tree();
 	lua_pushboolean(p_L, valid);
+	return 1;
+}
+
+// set_param_color_in_group(id, group_name, param_name, r, g, b, a) -> bool
+// 在当前节点子树内，按组为所有 GeometryInstance3D 设置实例着色器颜色参数。
+// 返回本次是否至少成功作用到一个节点。
+static int l_set_param_color_in_group(lua_State *p_L) {
+	if (!_ensure_main_thread("set_param_color_in_group")) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const char *group_name = luaL_checkstring(p_L, 2);
+	const char *param_name = luaL_checkstring(p_L, 3);
+	const double r = luaL_checknumber(p_L, 4);
+	const double g = luaL_checknumber(p_L, 5);
+	const double b = luaL_checknumber(p_L, 6);
+	const double a = luaL_checknumber(p_L, 7);
+
+	NodeRecord *rec = get_node(id, "set_param_color_in_group");
+	if (rec == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Node *root_node = godot::Object::cast_to<godot::Node>(_get_record_node(rec));
+	if (root_node == nullptr || !root_node->is_inside_tree()) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::SceneTree *tree = root_node->get_tree();
+	if (tree == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	const godot::Array candidates = tree->get_nodes_in_group(godot::StringName(group_name));
+	const godot::Color color((float)r, (float)g, (float)b, (float)a);
+	bool applied = false;
+	for (int64_t i = 0; i < candidates.size(); ++i) {
+		godot::Node *candidate = godot::Object::cast_to<godot::Node>(candidates[i]);
+		if (candidate == nullptr) {
+			continue;
+		}
+
+		if (candidate != root_node && !root_node->is_ancestor_of(candidate)) {
+			continue;
+		}
+
+		godot::GeometryInstance3D *geometry = godot::Object::cast_to<godot::GeometryInstance3D>(candidate);
+		if (geometry == nullptr) {
+			continue;
+		}
+
+		geometry->set_instance_shader_parameter(godot::StringName(param_name), color);
+		applied = true;
+	}
+
+	lua_pushboolean(p_L, applied);
 	return 1;
 }
 
@@ -809,6 +880,7 @@ static const luaL_Reg node_funcs[] = {
 	{"destroy", l_destroy},
 	{"get_child_by_path", l_get_child_by_path},
 	{"is_valid", l_is_valid},
+	{"set_param_color_in_group", l_set_param_color_in_group},
 
 	// 位置
 	{"set_position", l_set_position},
