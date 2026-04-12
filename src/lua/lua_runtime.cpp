@@ -11,6 +11,7 @@
 #include "../modules/anim_module.h"
 #include "../modules/node_module.h"
 #include "../modules/res_module.h"
+#include "../modules/debug_draw_module.h"
 
 extern "C" {
 #include <lua.h>
@@ -67,10 +68,15 @@ bool LuaRuntime::initialize() {
 	luaL_requiref(state, "native_res", luaopen_native_res, 0);
 	lua_pop(state, 1);
 
+	// 注册 native_debug_draw 模块
+	luaL_requiref(state, "native_debug_draw", luaopen_native_debug_draw, 0);
+	lua_pop(state, 1);
+
 	return true;
 }
 
 void LuaRuntime::shutdown() {
+	debug_draw_cleanup();
 	res_cleanup();
 	anim_cleanup();
 	node_cleanup();

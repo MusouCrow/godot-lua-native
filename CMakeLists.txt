@@ -88,6 +88,9 @@ set(EXTENSION_SOURCES
 				src/modules/anim_module.cpp
 				src/modules/node_module.cpp
 			src/modules/res_module.cpp
+				src/modules/debug_draw_module.cpp
+				src/debug_draw/debug_draw_scene.cpp
+				src/debug_draw/debug_draw_build.cpp
 )
 
 add_library(${EXTENSION_NAME} SHARED ${EXTENSION_SOURCES})
