@@ -4,20 +4,27 @@
 
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/character_body3d.hpp>
+#include <godot_cpp/classes/collision_object3d.hpp>
+#include <godot_cpp/classes/collision_shape3d.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node3d.hpp>
+#include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/shape3d.hpp>
 #include <godot_cpp/classes/window.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/object_id.hpp>
 #include <godot_cpp/templates/hash_set.hpp>
+#include <godot_cpp/variant/aabb.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/variant/node_path.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
+#include <godot_cpp/variant/transform3d.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
@@ -155,6 +162,82 @@ static NodeRecord *get_node(godot::ObjectID p_id, const char *p_func_name) {
 	}
 
 	return rec;
+}
+
+// 将 AABB 压入 Lua 返回值。
+static int _push_aabb(lua_State *p_L, const godot::AABB &p_aabb) {
+	lua_pushnumber(p_L, p_aabb.position.x);
+	lua_pushnumber(p_L, p_aabb.position.y);
+	lua_pushnumber(p_L, p_aabb.position.z);
+	lua_pushnumber(p_L, p_aabb.size.x);
+	lua_pushnumber(p_L, p_aabb.size.y);
+	lua_pushnumber(p_L, p_aabb.size.z);
+	return 6;
+}
+
+// 返回零 AABB。
+static int _push_zero_aabb(lua_State *p_L) {
+	return _push_aabb(p_L, godot::AABB());
+}
+
+// 获取 Shape3D 调试网格对应的局部 AABB。
+static bool _try_get_shape_local_aabb(const godot::Ref<godot::Shape3D> &p_shape, godot::AABB *r_aabb) {
+	if (p_shape.is_null() || r_aabb == nullptr) {
+		return false;
+	}
+
+	const godot::Ref<godot::ArrayMesh> debug_mesh = p_shape->get_debug_mesh();
+	if (debug_mesh.is_null()) {
+		return false;
+	}
+
+	*r_aabb = debug_mesh->get_aabb();
+	return true;
+}
+
+// 获取 CollisionShape3D 的 shape 局部 AABB。
+static bool _try_get_collision_shape_aabb(godot::CollisionShape3D *p_collision_shape, godot::AABB *r_aabb) {
+	if (p_collision_shape == nullptr) {
+		return false;
+	}
+
+	return _try_get_shape_local_aabb(p_collision_shape->get_shape(), r_aabb);
+}
+
+// 获取 CollisionObject3D 的主碰撞体 AABB。
+static bool _try_get_collision_object_aabb(godot::CollisionObject3D *p_collision_object, godot::AABB *r_aabb) {
+	if (p_collision_object == nullptr || r_aabb == nullptr) {
+		return false;
+	}
+
+	const godot::PackedInt32Array owner_ids = p_collision_object->get_shape_owners();
+	int best_shape_index = INT32_MAX;
+	bool found = false;
+	for (int32_t owner_pos = 0; owner_pos < owner_ids.size(); ++owner_pos) {
+		const uint32_t owner_id = (uint32_t)owner_ids[owner_pos];
+		if (p_collision_object->is_shape_owner_disabled(owner_id)) {
+			continue;
+		}
+
+		const int32_t shape_count = p_collision_object->shape_owner_get_shape_count(owner_id);
+		for (int32_t shape_pos = 0; shape_pos < shape_count; ++shape_pos) {
+			const int32_t shape_index = p_collision_object->shape_owner_get_shape_index(owner_id, shape_pos);
+			if (shape_index < 0 || shape_index >= best_shape_index) {
+				continue;
+			}
+
+			godot::AABB local_aabb;
+			if (!_try_get_shape_local_aabb(p_collision_object->shape_owner_get_shape(owner_id, shape_pos), &local_aabb)) {
+				continue;
+			}
+
+			best_shape_index = shape_index;
+			*r_aabb = p_collision_object->shape_owner_get_transform(owner_id).xform(local_aabb);
+			found = true;
+		}
+	}
+
+	return found;
 }
 
 // ============================================================================
@@ -466,6 +549,56 @@ static int l_get_position(lua_State *p_L) {
 	lua_pushnumber(p_L, pos.x);
 	lua_pushnumber(p_L, pos.y);
 	lua_pushnumber(p_L, pos.z);
+	return 3;
+}
+
+// get_aabb(id) -> pos_x, pos_y, pos_z, size_x, size_y, size_z
+// 获取主碰撞体在节点自身坐标系下的 AABB。
+static int l_get_aabb(lua_State *p_L) {
+	if (!_ensure_main_thread("get_aabb")) {
+		return _push_zero_aabb(p_L);
+	}
+
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	NodeRecord *rec = get_node(id, "get_aabb");
+	if (rec == nullptr) {
+		return _push_zero_aabb(p_L);
+	}
+
+	godot::Node3D *node = _get_record_node(rec);
+	if (node == nullptr) {
+		return _push_zero_aabb(p_L);
+	}
+
+	godot::AABB aabb;
+	if (_try_get_collision_shape_aabb(godot::Object::cast_to<godot::CollisionShape3D>(node), &aabb)) {
+		return _push_aabb(p_L, aabb);
+	}
+
+	if (_try_get_collision_object_aabb(godot::Object::cast_to<godot::CollisionObject3D>(node), &aabb)) {
+		return _push_aabb(p_L, aabb);
+	}
+
+	return _push_zero_aabb(p_L);
+}
+
+// get_scale(id, is_global) -> x, y, z
+// 获取节点缩放。
+// is_global: true 为世界缩放，false 为局部缩放（默认）。
+static int l_get_scale(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const bool is_global = lua_toboolean(p_L, 2);
+
+	NodeRecord *rec = get_node(id, "get_scale");
+	if (rec == nullptr) {
+		return 0;
+	}
+
+	godot::Node3D *node = _get_record_node(rec);
+	const godot::Vector3 scale = is_global ? node->get_global_basis().get_scale() : node->get_scale();
+	lua_pushnumber(p_L, scale.x);
+	lua_pushnumber(p_L, scale.y);
+	lua_pushnumber(p_L, scale.z);
 	return 3;
 }
 
@@ -885,6 +1018,8 @@ static const luaL_Reg node_funcs[] = {
 	// 位置
 	{"set_position", l_set_position},
 	{"get_position", l_get_position},
+	{"get_aabb", l_get_aabb},
+	{"get_scale", l_get_scale},
 
 	// 旋转
 	{"set_rotation", l_set_rotation},

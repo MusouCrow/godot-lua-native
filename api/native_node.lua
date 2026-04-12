@@ -76,6 +76,26 @@ function M.set_position(id, x, y, z, is_global) end
 ---@return number z Z 坐标
 function M.get_position(id, is_global) end
 
+--- native_node.get_aabb(id) -> number, number, number, number, number, number
+--- 获取主碰撞体在节点自身坐标系下的 AABB。
+---@param id integer 节点句柄
+---@return number pos_x 包围盒位置 X
+---@return number pos_y 包围盒位置 Y
+---@return number pos_z 包围盒位置 Z
+---@return number size_x 包围盒尺寸 X
+---@return number size_y 包围盒尺寸 Y
+---@return number size_z 包围盒尺寸 Z
+function M.get_aabb(id) end
+
+--- native_node.get_scale(id, is_global) -> number, number, number
+--- 获取节点缩放。
+---@param id integer 节点句柄
+---@param is_global? boolean true 为世界缩放，false 为局部缩放（默认 false）
+---@return number x X 缩放
+---@return number y Y 缩放
+---@return number z Z 缩放
+function M.get_scale(id, is_global) end
+
 -- ============================================================================
 -- 旋转
 -- ============================================================================
