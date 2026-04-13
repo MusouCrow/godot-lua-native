@@ -43,6 +43,39 @@ static PlayerRecord *get_player(int32_t p_id, const char *p_func_name) {
 	return &players[p_id];
 }
 
+// 立即销毁节点，避免退出同帧时 queue_free() 来不及释放资源。
+static void free_node_immediately(godot::Node *p_node) {
+	if (p_node == nullptr) {
+		return;
+	}
+
+	if (p_node->get_parent() != nullptr) {
+		p_node->get_parent()->remove_child(p_node);
+	}
+	memdelete(p_node);
+}
+
+// 释放播放器及其持有的流资源。
+static void free_player_record(const PlayerRecord *p_rec) {
+	if (p_rec == nullptr) {
+		return;
+	}
+
+	if (p_rec->is_spatial) {
+		if (p_rec->player_3d != nullptr) {
+			p_rec->player_3d->stop();
+			p_rec->player_3d->set_stream(godot::Ref<godot::AudioStream>());
+			free_node_immediately(p_rec->player_3d);
+		}
+	} else {
+		if (p_rec->player != nullptr) {
+			p_rec->player->stop();
+			p_rec->player->set_stream(godot::Ref<godot::AudioStream>());
+			free_node_immediately(p_rec->player);
+		}
+	}
+}
+
 // ============================================================================
 // 模块初始化
 // ============================================================================
@@ -129,11 +162,7 @@ static int l_destroy_player(lua_State *p_L) {
 		return 0;
 	}
 
-	if (rec->is_spatial) {
-		rec->player_3d->queue_free();
-	} else {
-		rec->player->queue_free();
-	}
+	free_player_record(rec);
 	players.erase(id);
 	return 0;
 }
@@ -339,6 +368,28 @@ static int l_set_position(lua_State *p_L) {
 	return 0;
 }
 
+// set_attenuation_params(id, unit_size, max_distance) -> void
+// 设置空间音频衰减参数（仅对空间播放器有效）。
+static int l_set_attenuation_params(lua_State *p_L) {
+	int32_t id = (int32_t)luaL_checkinteger(p_L, 1);
+	double unit_size = luaL_checknumber(p_L, 2);
+	double max_distance = luaL_checknumber(p_L, 3);
+
+	PlayerRecord *rec = get_player(id, "set_attenuation_params");
+	if (rec == nullptr) {
+		return 0;
+	}
+
+	if (!rec->is_spatial) {
+		godot::UtilityFunctions::printerr("native_audio.set_attenuation_params: player is not spatial, id ", id);
+		return 0;
+	}
+
+	rec->player_3d->set_unit_size((float)unit_size);
+	rec->player_3d->set_max_distance((float)max_distance);
+	return 0;
+}
+
 // set_loop(id, enabled) -> void
 // 设置音频循环播放。
 static int l_set_loop(lua_State *p_L) {
@@ -518,6 +569,7 @@ static const luaL_Reg audio_funcs[] = {
 	{"set_pitch", l_set_pitch},
 	{"set_bus", l_set_bus},
 	{"set_position", l_set_position},
+	{"set_attenuation_params", l_set_attenuation_params},
 	{"set_loop", l_set_loop},
 
 	// AudioBus 操作
@@ -538,22 +590,13 @@ int luaopen_native_audio(lua_State *p_L) {
 void audio_cleanup() {
 	// 销毁所有播放器
 	for (const godot::KeyValue<int32_t, PlayerRecord> &kv : players) {
-		const PlayerRecord &rec = kv.value;
-		if (rec.is_spatial) {
-			if (rec.player_3d != nullptr) {
-				rec.player_3d->queue_free();
-			}
-		} else {
-			if (rec.player != nullptr) {
-				rec.player->queue_free();
-			}
-		}
+		free_player_record(&kv.value);
 	}
 	players.clear();
 
 	// 销毁容器节点
 	if (audio_root != nullptr) {
-		audio_root->queue_free();
+		free_node_immediately(audio_root);
 		audio_root = nullptr;
 	}
 

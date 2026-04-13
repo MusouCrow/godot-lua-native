@@ -108,6 +108,14 @@ function M.set_bus(id, bus_name) end
 ---@return nil 非空间播放器或无效 id 时通常会被底层忽略
 function M.set_position(id, x, y, z) end
 
+--- native_audio.set_attenuation_params(id, unit_size, max_distance) -> void
+--- 设置空间音频播放器的衰减参数（仅对空间播放器有效）。
+---@param id integer 播放器 ID
+---@param unit_size number 衰减尺度，值越大声音可听距离越远
+---@param max_distance number 最远可听距离，0 表示不启用硬截止
+---@return nil 非空间播放器或无效 id 时通常会被底层忽略
+function M.set_attenuation_params(id, unit_size, max_distance) end
+
 --- native_audio.set_loop(id, enabled) -> void
 --- 设置音频循环播放（仅支持 MP3 和 OGG 格式）。
 ---@param id integer 播放器 ID
