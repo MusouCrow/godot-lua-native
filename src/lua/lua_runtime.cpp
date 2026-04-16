@@ -11,6 +11,10 @@
 #include "../modules/anim_module.h"
 #include "../modules/particles_module.h"
 #include "../modules/node_module.h"
+#include "../modules/transform_module.h"
+#include "../modules/physics_module.h"
+#include "../modules/camera_module.h"
+#include "../modules/material_module.h"
 #include "../modules/res_module.h"
 #include "../modules/debug_draw_module.h"
 
@@ -67,6 +71,22 @@ bool LuaRuntime::initialize() {
 
 	// 注册 native_node 模块
 	luaL_requiref(state, "native_node", luaopen_native_node, 0);
+	lua_pop(state, 1);
+
+	// 注册 native_transform 模块
+	luaL_requiref(state, "native_transform", luaopen_native_transform, 0);
+	lua_pop(state, 1);
+
+	// 注册 native_physics 模块
+	luaL_requiref(state, "native_physics", luaopen_native_physics, 0);
+	lua_pop(state, 1);
+
+	// 注册 native_camera 模块
+	luaL_requiref(state, "native_camera", luaopen_native_camera, 0);
+	lua_pop(state, 1);
+
+	// 注册 native_material 模块
+	luaL_requiref(state, "native_material", luaopen_native_material, 0);
 	lua_pop(state, 1);
 
 	// 注册 native_res 模块
