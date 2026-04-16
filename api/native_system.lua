@@ -16,4 +16,15 @@ local M = {}
 ---@return string name 操作系统名称
 function M.get_name() end
 
+--- native_system.get_rendering_method() -> string
+--- 返回当前渲染方法。
+--- 常见值包括：
+--- - "forward_plus"
+--- - "mobile"
+--- - "gl_compatibility"
+--- - "dummy"
+--- - "Unknown" (OS 不可用时)
+---@return string rendering_method 当前渲染方法
+function M.get_rendering_method() end
+
 return M

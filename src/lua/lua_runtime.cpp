@@ -9,6 +9,7 @@
 #include "../modules/system_module.h"
 #include "../modules/audio_module.h"
 #include "../modules/anim_module.h"
+#include "../modules/particles_module.h"
 #include "../modules/node_module.h"
 #include "../modules/res_module.h"
 #include "../modules/debug_draw_module.h"
@@ -58,6 +59,10 @@ bool LuaRuntime::initialize() {
 
 	// 注册 native_anim 模块
 	luaL_requiref(state, "native_anim", luaopen_native_anim, 0);
+	lua_pop(state, 1);
+
+	// 注册 native_particles 模块
+	luaL_requiref(state, "native_particles", luaopen_native_particles, 0);
 	lua_pop(state, 1);
 
 	// 注册 native_node 模块
