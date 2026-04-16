@@ -1,7 +1,5 @@
 #include "particles_module.h"
 
-#include "../host/host_thread_check.h"
-
 #include <godot_cpp/classes/gpu_particles3d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/core/object.hpp>
@@ -14,11 +12,6 @@ extern "C" {
 }
 
 namespace luagd {
-
-// 统一处理 native_particles 的主线程约束。
-static bool _ensure_main_thread(const char *p_func_name) {
-	return ensure_main_thread(godot::String("native_particles.") + p_func_name);
-}
 
 static godot::ObjectID _read_node_id(lua_State *p_L, int p_index) {
 	return godot::ObjectID((uint64_t)luaL_checkinteger(p_L, p_index));
@@ -52,11 +45,6 @@ static godot::GPUParticles3D *_resolve_particles(godot::ObjectID p_node_id, cons
 // play(node_id) -> bool
 // 开始发射粒子。
 static int l_play(lua_State *p_L) {
-	if (!_ensure_main_thread("play")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	godot::GPUParticles3D *particles = _resolve_particles(node_id, "play");
 	if (particles == nullptr) {
@@ -72,11 +60,6 @@ static int l_play(lua_State *p_L) {
 // stop(node_id) -> bool
 // 停止继续发射，不清空现有粒子。
 static int l_stop(lua_State *p_L) {
-	if (!_ensure_main_thread("stop")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	godot::GPUParticles3D *particles = _resolve_particles(node_id, "stop");
 	if (particles == nullptr) {
@@ -92,11 +75,6 @@ static int l_stop(lua_State *p_L) {
 // clear(node_id) -> bool
 // 清空现有粒子，同时保持调用前的播放状态。
 static int l_clear(lua_State *p_L) {
-	if (!_ensure_main_thread("clear")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	godot::GPUParticles3D *particles = _resolve_particles(node_id, "clear");
 	if (particles == nullptr) {
@@ -117,11 +95,6 @@ static int l_clear(lua_State *p_L) {
 // update(node_id, delta) -> bool
 // 请求粒子在单帧内额外处理一段时间。
 static int l_update(lua_State *p_L) {
-	if (!_ensure_main_thread("update")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	const double delta = luaL_checknumber(p_L, 2);
 	if (delta < 0.0) {
@@ -144,11 +117,6 @@ static int l_update(lua_State *p_L) {
 // set_speed_scale(node_id, speed_scale) -> bool
 // 设置粒子模拟速度倍率。
 static int l_set_speed_scale(lua_State *p_L) {
-	if (!_ensure_main_thread("set_speed_scale")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	const double speed_scale = luaL_checknumber(p_L, 2);
 	godot::GPUParticles3D *particles = _resolve_particles(node_id, "set_speed_scale");
@@ -165,11 +133,6 @@ static int l_set_speed_scale(lua_State *p_L) {
 // is_playing(node_id) -> bool
 // 查询当前是否仍在发射新粒子。
 static int l_is_playing(lua_State *p_L) {
-	if (!_ensure_main_thread("is_playing")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	godot::GPUParticles3D *particles = _resolve_particles(node_id, "is_playing");
 	if (particles == nullptr) {
@@ -185,11 +148,6 @@ static int l_is_playing(lua_State *p_L) {
 // 查询粒子系统是否仍处于活跃状态。
 // 该接口依赖真实粒子渲染后端维护 inactive 状态；在 dummy/headless 后端下不保证结果可靠。
 static int l_is_alive(lua_State *p_L) {
-	if (!_ensure_main_thread("is_alive")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	godot::GPUParticles3D *particles = _resolve_particles(node_id, "is_alive");
 	if (particles == nullptr) {

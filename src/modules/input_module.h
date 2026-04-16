@@ -13,6 +13,7 @@ int luaopen_native_input(lua_State *p_L);
 // 将输入事件传递给 Lua 回调。
 // p_event: Godot InputEvent。
 // 匹配所有已注册的 Action，对每个匹配调用 Lua 回调。
+// 约束：只允许在主线程调用。
 void input_dispatch_event(lua_State *p_L, const godot::InputEvent *p_event);
 
 } // namespace luagd

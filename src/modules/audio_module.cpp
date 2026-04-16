@@ -1,5 +1,7 @@
 #include "audio_module.h"
 
+#include "../host/host_thread_check.h"
+
 #include <godot_cpp/classes/audio_server.hpp>
 #include <godot_cpp/classes/audio_stream.hpp>
 #include <godot_cpp/classes/audio_stream_mp3.hpp>
@@ -588,17 +590,13 @@ int luaopen_native_audio(lua_State *p_L) {
 }
 
 void audio_cleanup() {
-	// 销毁所有播放器
-	for (const godot::KeyValue<int32_t, PlayerRecord> &kv : players) {
-		free_player_record(&kv.value);
+	if (!ensure_main_thread("native_audio.audio_cleanup")) {
+		return;
 	}
-	players.clear();
 
-	// 销毁容器节点
-	if (audio_root != nullptr) {
-		free_node_immediately(audio_root);
-		audio_root = nullptr;
-	}
+	// GDExtension 反初始化阶段只清理模块记录，场景对象交给引擎统一销毁。
+	players.clear();
+	audio_root = nullptr;
 
 	next_id = 1;
 	initialized = false;

@@ -43,11 +43,6 @@ void debug_draw_clear_commands() {
 	state.scratch.clear();
 }
 
-// 统一处理 native_debug_draw 的主线程约束。
-static bool _ensure_main_thread(const char *p_func_name) {
-	return ensure_main_thread(godot::String("native_debug_draw.") + p_func_name);
-}
-
 // 从连续 4 个 Lua number 读取 Color。
 static godot::Color _make_color(lua_State *p_L, int p_index) {
 	return godot::Color(
@@ -106,11 +101,6 @@ static bool _set_root_path(const char *p_path) {
 // 设置调试绘制根节点。
 // 返回：绑定成功返回 true，失败返回 false。
 static int l_set_root(lua_State *p_L) {
-	if (!_ensure_main_thread("set_root")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	const char *path = luaL_checkstring(p_L, 1);
 	const bool ok = _set_root_path(path);
 	lua_pushboolean(p_L, ok);
@@ -119,13 +109,8 @@ static int l_set_root(lua_State *p_L) {
 
 // set_enabled(enabled) -> bool
 // 设置模块是否启用。
-// 返回：处理成功返回 true，主线程检查失败返回 false。
+// 返回：处理成功返回 true。
 static int l_set_enabled(lua_State *p_L) {
-	if (!_ensure_main_thread("set_enabled")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	DebugDrawState &state = debug_draw_get_state();
 	state.enabled = lua_toboolean(p_L, 1);
 	if (!state.enabled) {
@@ -140,24 +125,14 @@ static int l_set_enabled(lua_State *p_L) {
 // is_enabled() -> bool
 // 查询模块是否启用。
 static int l_is_enabled(lua_State *p_L) {
-	if (!_ensure_main_thread("is_enabled")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	lua_pushboolean(p_L, debug_draw_get_state().enabled);
 	return 1;
 }
 
 // set_visible(visible) -> bool
 // 设置调试绘制节点可见性。
-// 返回：处理成功返回 true，主线程检查失败返回 false。
+// 返回：处理成功返回 true。
 static int l_set_visible(lua_State *p_L) {
-	if (!_ensure_main_thread("set_visible")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	DebugDrawState &state = debug_draw_get_state();
 	state.visible = lua_toboolean(p_L, 1);
 	debug_draw_update_visibility();
@@ -168,10 +143,6 @@ static int l_set_visible(lua_State *p_L) {
 // clear() -> void
 // 清空命令缓存和已显示 mesh。
 static int l_clear(lua_State *p_L) {
-	if (!_ensure_main_thread("clear")) {
-		return 0;
-	}
-
 	debug_draw_clear_commands();
 	debug_draw_clear_meshes();
 	return 0;
@@ -181,11 +152,6 @@ static int l_clear(lua_State *p_L) {
 // 提交当前缓存的调试绘制命令。
 // 返回：提交成功返回 true；未启用或提交失败返回 false。
 static int l_submit(lua_State *p_L) {
-	if (!_ensure_main_thread("submit")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	if (!debug_draw_get_state().enabled) {
 		lua_pushboolean(p_L, false);
 		return 1;
@@ -200,11 +166,6 @@ static int l_submit(lua_State *p_L) {
 // 添加调试点命令。
 // 返回：参数合法返回 true，否则返回 false。
 static int l_add_point(lua_State *p_L) {
-	if (!_ensure_main_thread("add_point")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	DebugPointCommand command;
 	command.position = godot::Vector3(
 		(float)luaL_checknumber(p_L, 1),
@@ -230,11 +191,6 @@ static int l_add_point(lua_State *p_L) {
 // 添加调试线命令。
 // 返回：参数合法返回 true，否则返回 false。
 static int l_add_line(lua_State *p_L) {
-	if (!_ensure_main_thread("add_line")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	DebugLineCommand command;
 	command.from = godot::Vector3(
 		(float)luaL_checknumber(p_L, 1),
@@ -270,11 +226,6 @@ static int l_add_line(lua_State *p_L) {
 // 添加调试圆命令。
 // 注意：is_fill=true 表示实心圆面，不表示圆环。
 static int l_add_circle(lua_State *p_L) {
-	if (!_ensure_main_thread("add_circle")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	DebugCircleCommand command;
 	command.center = godot::Vector3(
 		(float)luaL_checknumber(p_L, 1),
@@ -321,11 +272,6 @@ static int l_add_circle(lua_State *p_L) {
 // 添加调试扇形命令。
 // 返回：参数合法返回 true，否则返回 false。
 static int l_add_sector(lua_State *p_L) {
-	if (!_ensure_main_thread("add_sector")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	DebugSectorCommand command;
 	command.center = godot::Vector3(
 		(float)luaL_checknumber(p_L, 1),
@@ -387,19 +333,6 @@ static int l_add_sector(lua_State *p_L) {
 // get_stats() -> point_commands, line_commands, circle_commands, sector_commands, points_vertex_count, lines_vertex_count, faces_vertex_count, submit_count, had_camera
 // 返回最近一次 submit 的统计信息。
 static int l_get_stats(lua_State *p_L) {
-	if (!_ensure_main_thread("get_stats")) {
-		lua_pushinteger(p_L, 0);
-		lua_pushinteger(p_L, 0);
-		lua_pushinteger(p_L, 0);
-		lua_pushinteger(p_L, 0);
-		lua_pushinteger(p_L, 0);
-		lua_pushinteger(p_L, 0);
-		lua_pushinteger(p_L, 0);
-		lua_pushinteger(p_L, 0);
-		lua_pushboolean(p_L, false);
-		return 9;
-	}
-
 	const DebugFrameStats &stats = debug_draw_get_state().stats;
 	lua_pushinteger(p_L, stats.point_commands);
 	lua_pushinteger(p_L, stats.line_commands);
@@ -436,6 +369,10 @@ int luaopen_native_debug_draw(lua_State *p_L) {
 // 清理模块状态。
 // 注意：场景对象交给引擎统一销毁，这里只清理模块记录。
 void debug_draw_cleanup() {
+	if (!ensure_main_thread("native_debug_draw.debug_draw_cleanup")) {
+		return;
+	}
+
 	if (debug_draw_state == nullptr) {
 		return;
 	}

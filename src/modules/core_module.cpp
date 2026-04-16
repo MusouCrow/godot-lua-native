@@ -1,5 +1,7 @@
 #include "core_module.h"
 
+#include "../host/host_thread_check.h"
+
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
@@ -87,6 +89,10 @@ int luaopen_native_core(lua_State *p_L) {
 }
 
 int core_call_update(lua_State *p_L, double p_delta) {
+	if (!ensure_main_thread("native_core.core_call_update")) {
+		return -1;
+	}
+
 	// 从 registry 获取回调函数
 	lua_getfield(p_L, LUA_REGISTRYINDEX, UPDATE_CALLBACK_KEY);
 
@@ -120,6 +126,10 @@ int core_call_update(lua_State *p_L, double p_delta) {
 }
 
 void core_call_shutdown(lua_State *p_L) {
+	if (!ensure_main_thread("native_core.core_call_shutdown")) {
+		return;
+	}
+
 	// 从 registry 获取回调函数
 	lua_getfield(p_L, LUA_REGISTRYINDEX, SHUTDOWN_CALLBACK_KEY);
 

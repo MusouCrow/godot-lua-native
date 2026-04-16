@@ -1,5 +1,7 @@
 #include "input_module.h"
 
+#include "../host/host_thread_check.h"
+
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/input_event.hpp>
 #include <godot_cpp/classes/input_event_key.hpp>
@@ -204,6 +206,10 @@ static const char *get_device_type(const godot::InputEvent *p_event) {
 }
 
 void input_dispatch_event(lua_State *p_L, const godot::InputEvent *p_event) {
+	if (!ensure_main_thread("native_input.input_dispatch_event")) {
+		return;
+	}
+
 	if (p_L == nullptr || p_event == nullptr) {
 		return;
 	}

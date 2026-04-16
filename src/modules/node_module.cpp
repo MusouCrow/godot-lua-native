@@ -60,11 +60,6 @@ static godot::HashMap<godot::ObjectID, NodeRecord> nodes;
 static godot::HashMap<godot::ObjectID, godot::HashSet<godot::ObjectID>> root_children;
 static godot::ObjectID root_node_id;
 
-// 统一处理 native_node 的主线程约束。
-static bool _ensure_main_thread(const char *p_func_name) {
-	return ensure_main_thread(godot::String("native_node.") + p_func_name);
-}
-
 static godot::ObjectID _read_object_id(lua_State *p_L, int p_index) {
 	return godot::ObjectID((uint64_t)luaL_checkinteger(p_L, p_index));
 }
@@ -445,11 +440,6 @@ static int l_is_valid(lua_State *p_L) {
 // 在当前节点子树内，按组为所有 GeometryInstance3D 设置实例着色器颜色参数。
 // 返回本次是否至少成功作用到一个节点。
 static int l_set_param_color_in_group(lua_State *p_L) {
-	if (!_ensure_main_thread("set_param_color_in_group")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	const godot::ObjectID id = _read_object_id(p_L, 1);
 	const char *group_name = luaL_checkstring(p_L, 2);
 	const char *param_name = luaL_checkstring(p_L, 3);
@@ -555,10 +545,6 @@ static int l_get_position(lua_State *p_L) {
 // get_aabb(id) -> pos_x, pos_y, pos_z, size_x, size_y, size_z
 // 获取主碰撞体在节点自身坐标系下的 AABB。
 static int l_get_aabb(lua_State *p_L) {
-	if (!_ensure_main_thread("get_aabb")) {
-		return _push_zero_aabb(p_L);
-	}
-
 	const godot::ObjectID id = _read_object_id(p_L, 1);
 	NodeRecord *rec = get_node(id, "get_aabb");
 	if (rec == nullptr) {
@@ -1061,6 +1047,10 @@ void node_cleanup() {
 }
 
 godot::Node3D *node_resolve(godot::ObjectID p_id) {
+	if (!ensure_main_thread("native_node.node_resolve")) {
+		return nullptr;
+	}
+
 	if (!nodes.has(p_id)) {
 		return nullptr;
 	}

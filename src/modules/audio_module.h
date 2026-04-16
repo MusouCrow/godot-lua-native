@@ -11,7 +11,8 @@ namespace luagd {
 int luaopen_native_audio(lua_State *p_L);
 
 // 清理音频模块资源。
-// 销毁所有播放器和容器节点。
+// GDExtension 反初始化阶段只清理模块记录，场景对象交给引擎统一销毁。
+// 约束：只允许在主线程调用。
 // 在 LuaRuntime::shutdown 之前调用。
 void audio_cleanup();
 

@@ -20,6 +20,7 @@ int luaopen_native_node(lua_State *p_L);
 void node_cleanup();
 
 // 通过 native_node id 解析 Node3D。
+// 约束：只允许在主线程调用。
 // 仅供其他 native 模块内部使用，失败返回 nullptr。
 godot::Node3D *node_resolve(godot::ObjectID p_id);
 

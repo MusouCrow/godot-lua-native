@@ -1,6 +1,5 @@
 #include "anim_module.h"
 
-#include "../host/host_thread_check.h"
 #include "node_module.h"
 
 #include <godot_cpp/classes/animation.hpp>
@@ -110,11 +109,6 @@ struct AnimatorRecord {
 
 static godot::HashMap<int32_t, AnimatorRecord> animators;
 static int32_t next_animator_id = 1;
-
-// 统一处理 native_anim 的主线程约束。
-static bool _ensure_main_thread(const char *p_func_name) {
-	return ensure_main_thread(godot::String("native_anim.") + p_func_name);
-}
 
 static godot::String _param_path(const godot::StringName &p_node_name, const char *p_property) {
 	return godot::String("parameters/") + godot::String(p_node_name) + "/" + p_property;
@@ -634,11 +628,6 @@ static bool _remove_layer_nodes(AnimatorRecord *p_animator, LayerRecord *p_layer
 
 // 创建 Animator，并在宿主节点下创建内部 AnimationPlayer 和 AnimationTree。
 static int l_create_animator(lua_State *p_L) {
-	if (!_ensure_main_thread("create_animator")) {
-		lua_pushinteger(p_L, INVALID_ANIMATOR_ID);
-		return 1;
-	}
-
 	godot::ObjectID owner_node_id((uint64_t)luaL_checkinteger(p_L, 1));
 	godot::Node3D *owner = node_resolve(owner_node_id);
 	if (owner == nullptr) {
@@ -681,10 +670,6 @@ static int l_create_animator(lua_State *p_L) {
 }
 
 static int l_destroy_animator(lua_State *p_L) {
-	if (!_ensure_main_thread("destroy_animator")) {
-		return 0;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	if (!animators.has(animator_id)) {
 		return 0;
@@ -701,11 +686,6 @@ static int l_destroy_animator(lua_State *p_L) {
 }
 
 static int l_is_animator_valid(lua_State *p_L) {
-	if (!_ensure_main_thread("is_animator_valid")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	if (!animators.has(animator_id)) {
 		lua_pushboolean(p_L, false);
@@ -717,11 +697,6 @@ static int l_is_animator_valid(lua_State *p_L) {
 
 // 加载并添加 AnimationLibrary。
 static int l_add_animation_library(lua_State *p_L) {
-	if (!_ensure_main_thread("add_animation_library")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *library_name_cstr = luaL_checkstring(p_L, 2);
 	const char *library_path_cstr = luaL_checkstring(p_L, 3);
@@ -779,11 +754,6 @@ static int l_add_animation_library(lua_State *p_L) {
 }
 
 static int l_create_layer(lua_State *p_L) {
-	if (!_ensure_main_thread("create_layer")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	int32_t mix_mode = (int32_t)luaL_checkinteger(p_L, 3);
@@ -872,11 +842,6 @@ static int l_create_layer(lua_State *p_L) {
 }
 
 static int l_destroy_layer(lua_State *p_L) {
-	if (!_ensure_main_thread("destroy_layer")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	AnimatorRecord *animator = _get_animator(animator_id, "destroy_layer");
@@ -900,11 +865,6 @@ static int l_destroy_layer(lua_State *p_L) {
 }
 
 static int l_has_layer(lua_State *p_L) {
-	if (!_ensure_main_thread("has_layer")) {
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	AnimatorRecord *animator = _get_animator(animator_id, "has_layer");
@@ -918,11 +878,6 @@ static int l_has_layer(lua_State *p_L) {
 
 // 播放普通动画；anim_name 传空字符串时等价于停止该 Layer。
 static int l_play(lua_State *p_L) {
-	if (!_ensure_main_thread("play")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	const char *anim_name_cstr = luaL_checkstring(p_L, 3);
@@ -956,11 +911,6 @@ static int l_play(lua_State *p_L) {
 }
 
 static int l_clear_blend2d(lua_State *p_L) {
-	if (!_ensure_main_thread("clear_blend2d")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	AnimatorRecord *animator = _get_animator(animator_id, "clear_blend2d");
@@ -979,11 +929,6 @@ static int l_clear_blend2d(lua_State *p_L) {
 }
 
 static int l_set_blend2d_point(lua_State *p_L) {
-	if (!_ensure_main_thread("set_blend2d_point")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	const char *anim_name_cstr = luaL_checkstring(p_L, 3);
@@ -1017,11 +962,6 @@ static int l_set_blend2d_point(lua_State *p_L) {
 }
 
 static int l_play_blend2d(lua_State *p_L) {
-	if (!_ensure_main_thread("play_blend2d")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	double fade_time = luaL_optnumber(p_L, 3, 0.0);
@@ -1049,11 +989,6 @@ static int l_play_blend2d(lua_State *p_L) {
 }
 
 static int l_set_blend2d_params(lua_State *p_L) {
-	if (!_ensure_main_thread("set_blend2d_params")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	double x = luaL_checknumber(p_L, 3);
@@ -1078,11 +1013,6 @@ static int l_set_blend2d_params(lua_State *p_L) {
 }
 
 static int l_set_layer_weight(lua_State *p_L) {
-	if (!_ensure_main_thread("set_layer_weight")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	double weight = luaL_checknumber(p_L, 3);
@@ -1103,11 +1033,6 @@ static int l_set_layer_weight(lua_State *p_L) {
 }
 
 static int l_set_layer_speed(lua_State *p_L) {
-	if (!_ensure_main_thread("set_layer_speed")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	double speed = luaL_checknumber(p_L, 3);
@@ -1129,11 +1054,6 @@ static int l_set_layer_speed(lua_State *p_L) {
 }
 
 static int l_clear_layer_mask(lua_State *p_L) {
-	if (!_ensure_main_thread("clear_layer_mask")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	AnimatorRecord *animator = _get_animator(animator_id, "clear_layer_mask");
@@ -1152,11 +1072,6 @@ static int l_clear_layer_mask(lua_State *p_L) {
 }
 
 static int l_set_layer_mask_path(lua_State *p_L) {
-	if (!_ensure_main_thread("set_layer_mask_path")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	const char *path_cstr = luaL_checkstring(p_L, 3);
@@ -1199,11 +1114,6 @@ static int l_set_layer_mask_path(lua_State *p_L) {
 }
 
 static int l_get_layer_position(lua_State *p_L) {
-	if (!_ensure_main_thread("get_layer_position")) {
-		_push_number(p_L, 0.0);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	AnimatorRecord *animator = _get_animator(animator_id, "get_layer_position");
@@ -1224,11 +1134,6 @@ static int l_get_layer_position(lua_State *p_L) {
 }
 
 static int l_get_layer_length(lua_State *p_L) {
-	if (!_ensure_main_thread("get_layer_length")) {
-		_push_number(p_L, 0.0);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	AnimatorRecord *animator = _get_animator(animator_id, "get_layer_length");
@@ -1249,11 +1154,6 @@ static int l_get_layer_length(lua_State *p_L) {
 }
 
 static int l_is_layer_playing(lua_State *p_L) {
-	if (!_ensure_main_thread("is_layer_playing")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	AnimatorRecord *animator = _get_animator(animator_id, "is_layer_playing");
@@ -1273,11 +1173,6 @@ static int l_is_layer_playing(lua_State *p_L) {
 }
 
 static int l_is_layer_fading(lua_State *p_L) {
-	if (!_ensure_main_thread("is_layer_fading")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
 	AnimatorRecord *animator = _get_animator(animator_id, "is_layer_fading");
@@ -1297,11 +1192,6 @@ static int l_is_layer_fading(lua_State *p_L) {
 
 // 由 Lua 显式推进 fade 和 AnimationTree。
 static int l_update(lua_State *p_L) {
-	if (!_ensure_main_thread("update")) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
 	double delta = luaL_checknumber(p_L, 2);
 	AnimatorRecord *animator = _get_animator(animator_id, "update");
