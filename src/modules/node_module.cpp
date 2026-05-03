@@ -50,6 +50,22 @@ static godot::Node3D *_resolve_node3d(godot::ObjectID p_id) {
 	return godot::Object::cast_to<godot::Node3D>(godot::ObjectDB::get_instance((uint64_t)p_id));
 }
 
+static godot::Node *_get_scene_root_node(const char *p_func_name) {
+	godot::SceneTree *tree = godot::Object::cast_to<godot::SceneTree>(godot::Engine::get_singleton()->get_main_loop());
+	if (tree == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.", p_func_name, ": SceneTree not available");
+		return nullptr;
+	}
+
+	godot::Window *root_window = tree->get_root();
+	if (root_window == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.", p_func_name, ": Scene root not available");
+		return nullptr;
+	}
+
+	return godot::Object::cast_to<godot::Node>(root_window);
+}
+
 static godot::ObjectID _get_tracking_root_id(godot::Node *p_node) {
 	if (p_node == nullptr) {
 		return godot::ObjectID();
@@ -93,6 +109,10 @@ static godot::ObjectID _register_node(godot::Node3D *p_node, NodeOwnership p_own
 	}
 
 	const godot::ObjectID id = godot::ObjectID(p_node->get_instance_id());
+	if (nodes.has(id)) {
+		return id;
+	}
+
 	NodeRecord rec;
 	rec.id = id;
 	rec.ownership = p_ownership;
@@ -122,6 +142,37 @@ static NodeRecord *get_node(godot::ObjectID p_id, const char *p_func_name) {
 	}
 
 	return rec;
+}
+
+// get_node_by_path(path) -> id
+// 基于全局节点路径查找节点并返回句柄。
+static int l_get_node_by_path(lua_State *p_L) {
+	const char *path = luaL_checkstring(p_L, 1);
+
+	godot::Node *root_node = _get_scene_root_node("get_node_by_path");
+	if (root_node == nullptr) {
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	const godot::NodePath node_path((godot::String(path)));
+	if (!root_node->has_node(node_path)) {
+		godot::UtilityFunctions::printerr("native_node.get_node_by_path: node not found: ", path);
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	godot::Node *found_node = root_node->get_node<godot::Node>(node_path);
+	godot::Node3D *node3d = godot::Object::cast_to<godot::Node3D>(found_node);
+	if (node3d == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.get_node_by_path: node is not a Node3D: ", path);
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	const godot::ObjectID node_id = _register_node(node3d, NODE_OWNERSHIP_REFERENCE);
+	lua_pushinteger(p_L, (int64_t)node_id);
+	return 1;
 }
 
 // get_child_by_path(id, path) -> id
@@ -170,29 +221,20 @@ static int l_get_child_by_path(lua_State *p_L) {
 static int l_set_root(lua_State *p_L) {
 	const char *path = luaL_checkstring(p_L, 1);
 
-	godot::SceneTree *tree = godot::Object::cast_to<godot::SceneTree>(godot::Engine::get_singleton()->get_main_loop());
-	if (tree == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.set_root: SceneTree not available");
+	godot::Node *window_node = _get_scene_root_node("set_root");
+	if (window_node == nullptr) {
 		lua_pushboolean(p_L, false);
 		return 1;
 	}
 
-	godot::Window *root_window = tree->get_root();
-	if (root_window == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.set_root: Scene root not available");
-		lua_pushboolean(p_L, false);
-		return 1;
-	}
-
-	godot::Node *window_node = godot::Object::cast_to<godot::Node>(root_window);
 	const godot::NodePath node_path((godot::String(path)));
-	godot::Node *found_node = window_node->get_node<godot::Node>(node_path);
-	if (found_node == nullptr) {
+	if (!window_node->has_node(node_path)) {
 		godot::UtilityFunctions::printerr("native_node.set_root: node not found: ", path);
 		lua_pushboolean(p_L, false);
 		return 1;
 	}
 
+	godot::Node *found_node = window_node->get_node<godot::Node>(node_path);
 	root_node_id = godot::ObjectID(found_node->get_instance_id());
 	lua_pushboolean(p_L, true);
 	return 1;
@@ -329,6 +371,7 @@ static const luaL_Reg node_funcs[] = {
 	{"set_root", l_set_root},
 	{"instantiate", l_instantiate},
 	{"destroy", l_destroy},
+	{"get_node_by_path", l_get_node_by_path},
 	{"get_child_by_path", l_get_child_by_path},
 	{"is_valid", l_is_valid},
 	{"get_name", l_get_name},

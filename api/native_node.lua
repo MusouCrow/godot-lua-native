@@ -21,12 +21,17 @@ function M.set_root(path) end
 function M.instantiate(scene_path) end
 
 --- native_node.destroy(id) -> void
---- 销毁节点并释放引用。
---- 对于通过 instantiate 创建的节点，调用 queue_free 销毁节点。
---- 对于通过 get_child_by_path 获取的节点，仅释放引用。
+--- 销毁节点或释放节点记录。
+--- 通过 instantiate 创建的节点会 queue_free；引用节点仅释放 native 记录。
 ---@param id integer 节点句柄
 ---@return nil id 无效时通常会被底层忽略
 function M.destroy(id) end
+
+--- native_node.get_node_by_path(path) -> int
+--- 基于全局节点路径查找 Node3D 节点并返回句柄。若节点已注册，返回已有句柄。
+---@param path string 全局节点路径（如 "/root/pre_entry/pre_scene/[entity]"）
+---@return integer id 节点句柄，失败返回 -1
+function M.get_node_by_path(path) end
 
 --- native_node.get_child_by_path(id, path) -> int
 --- 基于指定节点查找子节点并返回句柄。
