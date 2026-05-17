@@ -21,14 +21,6 @@ function M.stop(node_id) end
 ---@return boolean success 是否成功
 function M.clear(node_id) end
 
---- native_particles.update(node_id, delta) -> bool
---- 请求粒子在单帧内额外处理一段时间。
---- 注意：这不是像 native_anim.update() 那样的主时间推进。
----@param node_id integer native_node 返回的粒子节点 id
----@param delta number 单帧额外处理时间，要求 >= 0
----@return boolean success 是否成功
-function M.update(node_id, delta) end
-
 --- native_particles.set_speed_scale(node_id, speed_scale) -> bool
 --- 设置粒子模拟速度倍率；传 0 可用于冻结模拟。
 ---@param node_id integer native_node 返回的粒子节点 id

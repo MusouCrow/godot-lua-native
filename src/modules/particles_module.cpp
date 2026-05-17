@@ -92,28 +92,6 @@ static int l_clear(lua_State *p_L) {
 	return 1;
 }
 
-// update(node_id, delta) -> bool
-// 请求粒子在单帧内额外处理一段时间。
-static int l_update(lua_State *p_L) {
-	const godot::ObjectID node_id = _read_node_id(p_L, 1);
-	const double delta = luaL_checknumber(p_L, 2);
-	if (delta < 0.0) {
-		godot::UtilityFunctions::printerr("native_particles.update: delta must be >= 0, got ", delta);
-		_push_bool(p_L, false);
-		return 1;
-	}
-
-	godot::GPUParticles3D *particles = _resolve_particles(node_id, "update");
-	if (particles == nullptr) {
-		_push_bool(p_L, false);
-		return 1;
-	}
-
-	particles->request_particles_process((float)delta);
-	_push_bool(p_L, true);
-	return 1;
-}
-
 // set_speed_scale(node_id, speed_scale) -> bool
 // 设置粒子模拟速度倍率。
 static int l_set_speed_scale(lua_State *p_L) {
@@ -164,7 +142,6 @@ static const luaL_Reg particles_funcs[] = {
 	{"play", l_play},
 	{"stop", l_stop},
 	{"clear", l_clear},
-	{"update", l_update},
 	{"set_speed_scale", l_set_speed_scale},
 	{"is_playing", l_is_playing},
 	{"is_alive", l_is_alive},
