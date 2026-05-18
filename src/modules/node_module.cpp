@@ -367,6 +367,39 @@ static int l_get_type(lua_State *p_L) {
 	return 1;
 }
 
+// find_registered_ancestor(node_id) -> ancestor_id
+// 从给定的 ObjectID 向上查找第一个已注册的祖先节点。
+static int l_find_registered_ancestor(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+
+	// 先检查节点本身是否存在
+	godot::Node *node = godot::Object::cast_to<godot::Node>(godot::ObjectDB::get_instance((uint64_t)id));
+	if (node == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.find_registered_ancestor: node not found, id ", id);
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	// 向上遍历查找已注册的节点
+	godot::Node *current = node;
+	while (current != nullptr) {
+		godot::ObjectID current_id = godot::ObjectID(current->get_instance_id());
+
+		// 检查当前节点是否已注册
+		if (nodes.has(current_id)) {
+			lua_pushinteger(p_L, (int64_t)current_id);
+			return 1;
+		}
+
+		// 向上移动到父节点
+		current = current->get_parent();
+	}
+
+	// 没有找到已注册的祖先
+	lua_pushinteger(p_L, -1);
+	return 1;
+}
+
 static const luaL_Reg node_funcs[] = {
 	{"set_root", l_set_root},
 	{"instantiate", l_instantiate},
@@ -376,6 +409,7 @@ static const luaL_Reg node_funcs[] = {
 	{"is_valid", l_is_valid},
 	{"get_name", l_get_name},
 	{"get_type", l_get_type},
+	{"find_registered_ancestor", l_find_registered_ancestor},
 	{nullptr, nullptr}
 };
 

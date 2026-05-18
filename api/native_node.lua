@@ -62,4 +62,11 @@ function M.get_name(id) end
 ---@return string type 节点类型字符串（如 "Node3D"、"CharacterBody3D"、"Camera3D"）
 function M.get_type(id) end
 
+--- native_node.find_registered_ancestor(node_id) -> int
+--- 从给定的节点 ID 向上查找第一个已注册的祖先节点。
+--- 如果节点本身已注册，返回自己的 ID。
+---@param node_id integer 任意节点的 ObjectID（可以是未注册的）
+---@return integer ancestor_id 已注册祖先节点的 ID，如果找不到返回 -1
+function M.find_registered_ancestor(node_id) end
+
 return M

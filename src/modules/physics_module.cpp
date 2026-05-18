@@ -14,6 +14,8 @@
 #include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/object_id.hpp>
+#include <godot_cpp/templates/rb_set.hpp>
+#include <godot_cpp/templates/vector.hpp>
 #include <godot_cpp/variant/aabb.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -288,84 +290,84 @@ static int l_get_floor_normal(lua_State *p_L) {
 	return 3;
 }
 
-// intersect_hitbox(attack_hitbox_id, collision_mask, callback) -> void
-// 对指定的AttackHitbox3D节点执行碰撞检测
-// 对每个碰撞目标调用callback(target_id)
-// callback返回false可提前终止迭代
-static int l_intersect_hitbox(lua_State *p_L) {
-	// 延迟初始化Shape资源（第一次调用时）
-	if (cached_cylinder_shape.is_null()) {
-		cached_cylinder_shape.instantiate();
-		cached_box_shape.instantiate();
-		cached_query_params.instantiate();
+// 判断节点是否为AttackHitbox3D
+// AttackHitbox3D是GDScript定义的类，get_class()返回基类Node3D
+// 通过检查是否有shape_type属性来判断
+static bool _is_attack_hitbox(godot::Node3D *p_node) {
+	if (!p_node) {
+		return false;
+	}
+	// 检查是否有shape_type属性（AttackHitbox3D的特征属性）
+	godot::Variant shape_type_var = p_node->get("shape_type");
+	return shape_type_var.get_type() != godot::Variant::NIL;
+}
+
+// 收集直接子节点中的所有AttackHitbox3D（仅一层）
+static void _collect_attack_hitboxes(godot::Node *p_parent_node, godot::Vector<godot::Node3D *> &r_hitboxes) {
+	if (!p_parent_node) {
+		return;
 	}
 
-	// 1. 参数校验
-	int argc = lua_gettop(p_L);
-	if (argc < 3) {
-		godot::UtilityFunctions::printerr("native_physics.intersect_hitbox: expected 3 args (hitbox_id, collision_mask, callback), got ", argc);
-		return 0;
+	for (int i = 0; i < p_parent_node->get_child_count(); i++) {
+		godot::Node *child = p_parent_node->get_child(i);
+		godot::Node3D *child3d = godot::Object::cast_to<godot::Node3D>(child);
+
+		if (child3d && _is_attack_hitbox(child3d)) {
+			r_hitboxes.push_back(child3d);
+		}
 	}
+}
 
-	// 2. 解析参数
-	godot::ObjectID hitbox_id = _read_node_id(p_L, 1);
-	uint32_t collision_mask = (uint32_t)luaL_checkinteger(p_L, 2);
-	luaL_checktype(p_L, 3, LUA_TFUNCTION);
-
-	// 默认collision_mask为全层
-	if (collision_mask == 0) {
-		collision_mask = 0xFFFFFFFF;
-	}
-
-	// 3. 解析hitbox节点
-	godot::Node3D *hitbox_node = _resolve_node(hitbox_id, "intersect_hitbox");
-	if (!hitbox_node) {
-		return 0;
-	}
-
-	// 4. 读取AttackHitbox3D属性
-	godot::Variant shape_type_var = hitbox_node->get("shape_type");
+// 处理单个hitbox的碰撞检测
+static bool _process_single_hitbox(
+		lua_State *p_L,
+		godot::Node3D *p_hitbox_node,
+		uint32_t p_collision_mask,
+		int p_callback_index,
+		godot::RBSet<uint64_t> &r_processed_ids) {
+	// 1. 读取AttackHitbox3D属性
+	godot::Variant shape_type_var = p_hitbox_node->get("shape_type");
 	int shape_type = (int)shape_type_var;
-	godot::Transform3D hitbox_transform = hitbox_node->get_global_transform();
+	godot::Transform3D hitbox_transform = p_hitbox_node->get_global_transform();
 
-	// 5. 配置Shape和查询参数
+	// 2. 配置Shape和查询参数
 	godot::Ref<godot::Shape3D> shape;
 	double cylinder_angle = 360.0;
 
 	if (shape_type == 0) { // CYLINDER
-		double radius = (double)hitbox_node->get("cylinder_radius");
-		double height = (double)hitbox_node->get("cylinder_height");
-		cylinder_angle = (double)hitbox_node->get("cylinder_angle");
+		double radius = (double)p_hitbox_node->get("cylinder_radius");
+		double height = (double)p_hitbox_node->get("cylinder_height");
+		cylinder_angle = (double)p_hitbox_node->get("cylinder_angle");
 
 		cached_cylinder_shape->set_radius(radius);
 		cached_cylinder_shape->set_height(height);
 		shape = cached_cylinder_shape;
 	} else { // BOX
-		godot::Vector3 size = (godot::Vector3)hitbox_node->get("box_size");
+		godot::Vector3 size = (godot::Vector3)p_hitbox_node->get("box_size");
 		cached_box_shape->set_size(size);
 		shape = cached_box_shape;
 	}
 
 	cached_query_params->set_shape(shape);
 	cached_query_params->set_transform(hitbox_transform);
-	cached_query_params->set_collision_mask(collision_mask);
+	cached_query_params->set_collision_mask(p_collision_mask);
 
-	// 6. 获取PhysicsDirectSpaceState3D并执行检测
-	godot::Ref<godot::World3D> world = hitbox_node->get_world_3d();
+	// 3. 获取PhysicsDirectSpaceState3D并执行检测
+	godot::Ref<godot::World3D> world = p_hitbox_node->get_world_3d();
 	if (world.is_null()) {
 		godot::UtilityFunctions::printerr("native_physics.intersect_hitbox: hitbox node not in world");
-		return 0;
+		return false; // 严肃处理：直接失败
 	}
 
 	godot::PhysicsDirectSpaceState3D *space_state = world->get_direct_space_state();
 	if (!space_state) {
 		godot::UtilityFunctions::printerr("native_physics.intersect_hitbox: failed to get space state");
-		return 0;
+		return false; // 严肃处理：直接失败
 	}
 
 	godot::TypedArray<godot::Dictionary> results = space_state->intersect_shape(cached_query_params);
 
-	// 7. 处理扇柱角度过滤（如果需要）
+	// 4. 处理扇柱角度过滤（如果需要）
 	bool is_sector = (shape_type == 0 && cylinder_angle < 360.0);
 	godot::Vector3 hitbox_pos;
 	godot::Vector3 hitbox_forward;
@@ -377,7 +379,7 @@ static int l_intersect_hitbox(lua_State *p_L) {
 		half_angle_rad = (cylinder_angle / 2.0) * Math_PI / 180.0;
 	}
 
-	// 8. 对每个结果调用回调
+	// 5. 对每个结果进行去重和回调
 	for (int i = 0; i < results.size(); i++) {
 		godot::Dictionary result = results[i];
 		uint64_t target_id = (uint64_t)result["collider_id"];
@@ -403,22 +405,103 @@ static int l_intersect_hitbox(lua_State *p_L) {
 			}
 		}
 
+		// 去重检查
+		if (r_processed_ids.has(target_id)) {
+			continue; // 已处理过，跳过
+		}
+
+		// 添加到已处理集合
+		r_processed_ids.insert(target_id);
+
 		// 调用Lua回调函数
-		lua_pushvalue(p_L, 3); // 复制回调函数到栈顶
+		lua_pushvalue(p_L, p_callback_index); // 复制回调函数到栈顶
 		lua_pushinteger(p_L, target_id);
 
 		if (lua_pcall(p_L, 1, 1, 0) != LUA_OK) {
 			godot::UtilityFunctions::printerr("native_physics.intersect_hitbox: callback error: ", lua_tostring(p_L, -1));
 			lua_pop(p_L, 1);
-			break;
+			return false; // 回调出错，停止处理
 		}
 
 		// 检查返回值，如果是false则提前终止
 		if (lua_isboolean(p_L, -1) && !lua_toboolean(p_L, -1)) {
 			lua_pop(p_L, 1);
-			break;
+			return false; // 回调要求停止
 		}
 		lua_pop(p_L, 1);
+	}
+
+	return true; // 继续处理下一个hitbox
+}
+
+// intersect_hitbox(node_id, collision_mask, callback) -> void
+// 对指定节点或其子节点中的AttackHitbox3D执行碰撞检测
+// 如果node_id本身是AttackHitbox3D，直接处理
+// 否则遍历其直接子节点，找到所有AttackHitbox3D进行处理
+// 对每个碰撞目标调用callback(target_id)，多个hitbox检测到同一目标只回调一次
+// callback返回false可提前终止迭代
+static int l_intersect_hitbox(lua_State *p_L) {
+	// 延迟初始化Shape资源（第一次调用时）
+	if (cached_cylinder_shape.is_null()) {
+		cached_cylinder_shape.instantiate();
+		cached_box_shape.instantiate();
+		cached_query_params.instantiate();
+	}
+
+	// 1. 参数校验
+	int argc = lua_gettop(p_L);
+	if (argc < 3) {
+		godot::UtilityFunctions::printerr("native_physics.intersect_hitbox: expected 3 args (node_id, collision_mask, callback), got ", argc);
+		return 0;
+	}
+
+	// 2. 解析参数
+	godot::ObjectID node_id = _read_node_id(p_L, 1);
+	uint32_t collision_mask = (uint32_t)luaL_checkinteger(p_L, 2);
+	luaL_checktype(p_L, 3, LUA_TFUNCTION);
+
+	// 默认collision_mask为全层
+	if (collision_mask == 0) {
+		collision_mask = 0xFFFFFFFF;
+	}
+
+	// 3. 解析节点
+	godot::Node3D *node = _resolve_node(node_id, "intersect_hitbox");
+	if (!node) {
+		return 0;
+	}
+
+	// 4. 收集所有需要处理的AttackHitbox3D节点
+	godot::Vector<godot::Node3D *> hitboxes;
+
+	// 检查node本身是否为AttackHitbox3D
+	if (_is_attack_hitbox(node)) {
+		hitboxes.push_back(node);
+	} else {
+		// 遍历直接子节点（仅一层）
+		_collect_attack_hitboxes(node, hitboxes);
+	}
+
+	// 如果没有找到任何AttackHitbox3D，静默返回
+	if (hitboxes.is_empty()) {
+		return 0;
+	}
+
+	// 5. 创建去重集合
+	godot::RBSet<uint64_t> processed_ids;
+
+	// 6. 处理每个hitbox
+	for (int i = 0; i < hitboxes.size(); i++) {
+		bool should_continue = _process_single_hitbox(
+				p_L,
+				hitboxes[i],
+				collision_mask,
+				3, // 回调函数在栈索引3
+				processed_ids);
+
+		if (!should_continue) {
+			break; // 回调返回false或出错，提前终止
+		}
 	}
 
 	return 0;
