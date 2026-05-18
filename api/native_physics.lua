@@ -70,4 +70,13 @@ function M.is_on_ceiling(id) end
 ---@return number nz
 function M.get_floor_normal(id) end
 
+--- native_physics.intersect_hitbox(attack_hitbox_id, collision_mask, callback) -> void
+--- 对指定的 AttackHitbox3D 节点执行碰撞检测。
+--- 对每个碰撞目标调用 callback 函数，传入 target_id（ObjectID）。
+--- callback 返回 false 可提前终止迭代。
+---@param attack_hitbox_id integer AttackHitbox3D 节点的 ObjectID
+---@param collision_mask integer 碰撞层掩码，0 表示检测所有层（0xFFFFFFFF）
+---@param callback fun(target_id: integer): boolean 回调函数，参数为碰撞目标的 ObjectID，返回 false 终止迭代
+function M.intersect_hitbox(attack_hitbox_id, collision_mask, callback) end
+
 return M

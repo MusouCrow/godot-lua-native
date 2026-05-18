@@ -3,10 +3,15 @@
 #include "node_module.h"
 
 #include <godot_cpp/classes/array_mesh.hpp>
+#include <godot_cpp/classes/box_shape3d.hpp>
 #include <godot_cpp/classes/character_body3d.hpp>
 #include <godot_cpp/classes/collision_object3d.hpp>
 #include <godot_cpp/classes/collision_shape3d.hpp>
+#include <godot_cpp/classes/cylinder_shape3d.hpp>
+#include <godot_cpp/classes/physics_direct_space_state3d.hpp>
+#include <godot_cpp/classes/physics_shape_query_parameters3d.hpp>
 #include <godot_cpp/classes/shape3d.hpp>
+#include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/object_id.hpp>
 #include <godot_cpp/variant/aabb.hpp>
@@ -21,6 +26,11 @@ extern "C" {
 }
 
 namespace luagd {
+
+// 预设Shape资源，用于intersect_hitbox复用
+static godot::Ref<godot::CylinderShape3D> cached_cylinder_shape;
+static godot::Ref<godot::BoxShape3D> cached_box_shape;
+static godot::Ref<godot::PhysicsShapeQueryParameters3D> cached_query_params;
 
 static godot::ObjectID _read_node_id(lua_State *p_L, int p_index) {
 	return godot::ObjectID((uint64_t)luaL_checkinteger(p_L, p_index));
@@ -278,6 +288,142 @@ static int l_get_floor_normal(lua_State *p_L) {
 	return 3;
 }
 
+// intersect_hitbox(attack_hitbox_id, collision_mask, callback) -> void
+// 对指定的AttackHitbox3D节点执行碰撞检测
+// 对每个碰撞目标调用callback(target_id)
+// callback返回false可提前终止迭代
+static int l_intersect_hitbox(lua_State *p_L) {
+	// 延迟初始化Shape资源（第一次调用时）
+	if (cached_cylinder_shape.is_null()) {
+		cached_cylinder_shape.instantiate();
+		cached_box_shape.instantiate();
+		cached_query_params.instantiate();
+	}
+
+	// 1. 参数校验
+	int argc = lua_gettop(p_L);
+	if (argc < 3) {
+		godot::UtilityFunctions::printerr("native_physics.intersect_hitbox: expected 3 args (hitbox_id, collision_mask, callback), got ", argc);
+		return 0;
+	}
+
+	// 2. 解析参数
+	godot::ObjectID hitbox_id = _read_node_id(p_L, 1);
+	uint32_t collision_mask = (uint32_t)luaL_checkinteger(p_L, 2);
+	luaL_checktype(p_L, 3, LUA_TFUNCTION);
+
+	// 默认collision_mask为全层
+	if (collision_mask == 0) {
+		collision_mask = 0xFFFFFFFF;
+	}
+
+	// 3. 解析hitbox节点
+	godot::Node3D *hitbox_node = _resolve_node(hitbox_id, "intersect_hitbox");
+	if (!hitbox_node) {
+		return 0;
+	}
+
+	// 4. 读取AttackHitbox3D属性
+	godot::Variant shape_type_var = hitbox_node->get("shape_type");
+	int shape_type = (int)shape_type_var;
+	godot::Transform3D hitbox_transform = hitbox_node->get_global_transform();
+
+	// 5. 配置Shape和查询参数
+	godot::Ref<godot::Shape3D> shape;
+	double cylinder_angle = 360.0;
+
+	if (shape_type == 0) { // CYLINDER
+		double radius = (double)hitbox_node->get("cylinder_radius");
+		double height = (double)hitbox_node->get("cylinder_height");
+		cylinder_angle = (double)hitbox_node->get("cylinder_angle");
+
+		cached_cylinder_shape->set_radius(radius);
+		cached_cylinder_shape->set_height(height);
+		shape = cached_cylinder_shape;
+	} else { // BOX
+		godot::Vector3 size = (godot::Vector3)hitbox_node->get("box_size");
+		cached_box_shape->set_size(size);
+		shape = cached_box_shape;
+	}
+
+	cached_query_params->set_shape(shape);
+	cached_query_params->set_transform(hitbox_transform);
+	cached_query_params->set_collision_mask(collision_mask);
+
+	// 6. 获取PhysicsDirectSpaceState3D并执行检测
+	godot::Ref<godot::World3D> world = hitbox_node->get_world_3d();
+	if (world.is_null()) {
+		godot::UtilityFunctions::printerr("native_physics.intersect_hitbox: hitbox node not in world");
+		return 0;
+	}
+
+	godot::PhysicsDirectSpaceState3D *space_state = world->get_direct_space_state();
+	if (!space_state) {
+		godot::UtilityFunctions::printerr("native_physics.intersect_hitbox: failed to get space state");
+		return 0;
+	}
+
+	godot::TypedArray<godot::Dictionary> results = space_state->intersect_shape(cached_query_params);
+
+	// 7. 处理扇柱角度过滤（如果需要）
+	bool is_sector = (shape_type == 0 && cylinder_angle < 360.0);
+	godot::Vector3 hitbox_pos;
+	godot::Vector3 hitbox_forward;
+	double half_angle_rad = 0.0;
+
+	if (is_sector) {
+		hitbox_pos = hitbox_transform.get_origin();
+		hitbox_forward = -hitbox_transform.basis.get_column(2); // -Z轴
+		half_angle_rad = (cylinder_angle / 2.0) * Math_PI / 180.0;
+	}
+
+	// 8. 对每个结果调用回调
+	for (int i = 0; i < results.size(); i++) {
+		godot::Dictionary result = results[i];
+		uint64_t target_id = (uint64_t)result["collider_id"];
+
+		// 扇柱角度过滤
+		if (is_sector) {
+			godot::Object *collider = (godot::Object *)result["collider"];
+			godot::Node3D *target_node = godot::Object::cast_to<godot::Node3D>(collider);
+
+			if (target_node) {
+				godot::Vector3 target_pos = target_node->get_global_position();
+				godot::Vector3 to_target = target_pos - hitbox_pos;
+				to_target.y = 0; // 投影到XZ平面
+
+				if (to_target.length_squared() > 0.001) { // 避免零向量
+					to_target = to_target.normalized();
+					double angle_rad = hitbox_forward.angle_to(to_target);
+
+					if (angle_rad > half_angle_rad) {
+						continue; // 不在扇形范围内，跳过
+					}
+				}
+			}
+		}
+
+		// 调用Lua回调函数
+		lua_pushvalue(p_L, 3); // 复制回调函数到栈顶
+		lua_pushinteger(p_L, target_id);
+
+		if (lua_pcall(p_L, 1, 1, 0) != LUA_OK) {
+			godot::UtilityFunctions::printerr("native_physics.intersect_hitbox: callback error: ", lua_tostring(p_L, -1));
+			lua_pop(p_L, 1);
+			break;
+		}
+
+		// 检查返回值，如果是false则提前终止
+		if (lua_isboolean(p_L, -1) && !lua_toboolean(p_L, -1)) {
+			lua_pop(p_L, 1);
+			break;
+		}
+		lua_pop(p_L, 1);
+	}
+
+	return 0;
+}
+
 static const luaL_Reg physics_funcs[] = {
 	{"get_aabb", l_get_aabb},
 	{"move_and_slide", l_move_and_slide},
@@ -288,6 +434,7 @@ static const luaL_Reg physics_funcs[] = {
 	{"is_on_wall", l_is_on_wall},
 	{"is_on_ceiling", l_is_on_ceiling},
 	{"get_floor_normal", l_get_floor_normal},
+	{"intersect_hitbox", l_intersect_hitbox},
 	{nullptr, nullptr}
 };
 
