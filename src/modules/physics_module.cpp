@@ -68,6 +68,21 @@ static godot::CharacterBody3D *_resolve_character_body(godot::ObjectID p_node_id
 	return body;
 }
 
+static godot::CollisionObject3D *_resolve_collision_object(godot::ObjectID p_node_id, const char *p_func_name) {
+	godot::Node3D *node = _resolve_node(p_node_id, p_func_name);
+	if (node == nullptr) {
+		return nullptr;
+	}
+
+	godot::CollisionObject3D *collision_object = godot::Object::cast_to<godot::CollisionObject3D>(node);
+	if (collision_object == nullptr) {
+		godot::UtilityFunctions::printerr("native_physics.", p_func_name, ": node is not CollisionObject3D, id ", p_node_id);
+		return nullptr;
+	}
+
+	return collision_object;
+}
+
 static int _push_aabb(lua_State *p_L, const godot::AABB &p_aabb) {
 	lua_pushnumber(p_L, p_aabb.position.x);
 	lua_pushnumber(p_L, p_aabb.position.y);
@@ -288,6 +303,35 @@ static int l_get_floor_normal(lua_State *p_L) {
 	lua_pushnumber(p_L, normal.y);
 	lua_pushnumber(p_L, normal.z);
 	return 3;
+}
+
+// set_collider_layer(node_id, layer) -> void
+// 设置 CollisionObject3D 的碰撞层。
+static int l_set_collider_layer(lua_State *p_L) {
+	const godot::ObjectID node_id = _read_node_id(p_L, 1);
+	const uint32_t layer = (uint32_t)luaL_checkinteger(p_L, 2);
+
+	godot::CollisionObject3D *collision_object = _resolve_collision_object(node_id, "set_collider_layer");
+	if (collision_object == nullptr) {
+		return 0;
+	}
+
+	collision_object->set_collision_layer(layer);
+	return 0;
+}
+
+// get_collider_layer(node_id) -> integer
+// 获取 CollisionObject3D 的碰撞层。
+static int l_get_collider_layer(lua_State *p_L) {
+	const godot::ObjectID node_id = _read_node_id(p_L, 1);
+	godot::CollisionObject3D *collision_object = _resolve_collision_object(node_id, "get_collider_layer");
+	if (collision_object == nullptr) {
+		lua_pushinteger(p_L, 0);
+		return 1;
+	}
+
+	lua_pushinteger(p_L, collision_object->get_collision_layer());
+	return 1;
 }
 
 // 判断节点是否为AttackHitbox3D
@@ -517,6 +561,8 @@ static const luaL_Reg physics_funcs[] = {
 	{"is_on_wall", l_is_on_wall},
 	{"is_on_ceiling", l_is_on_ceiling},
 	{"get_floor_normal", l_get_floor_normal},
+	{"set_collider_layer", l_set_collider_layer},
+	{"get_collider_layer", l_get_collider_layer},
 	{"intersect_hitbox", l_intersect_hitbox},
 	{nullptr, nullptr}
 };
