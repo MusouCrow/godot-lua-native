@@ -375,7 +375,7 @@ static bool _process_single_hitbox(
 
 	if (is_sector) {
 		hitbox_pos = hitbox_transform.get_origin();
-		hitbox_forward = -hitbox_transform.basis.get_column(2); // -Z轴
+		hitbox_forward = hitbox_transform.basis.get_column(2); // +Z轴
 		half_angle_rad = (cylinder_angle / 2.0) * Math_PI / 180.0;
 	}
 
