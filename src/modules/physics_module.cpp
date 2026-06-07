@@ -722,6 +722,61 @@ static int l_intersect_hitbox(lua_State *p_L) {
 	return 0;
 }
 
+// 设置单个 AttackHitbox3D 的 active 属性
+static void _set_single_hitbox_active(godot::Node3D *p_hitbox_node, bool p_active) {
+	if (!p_hitbox_node) {
+		return;
+	}
+
+	p_hitbox_node->set("active", p_active);
+}
+
+// set_hitbox_active(node_id, active) -> void
+// 设置指定节点或其子节点中的 AttackHitbox3D 的 active 状态
+// 如果 node_id 本身是 AttackHitbox3D，直接设置
+// 否则遍历其直接子节点，找到所有 AttackHitbox3D 进行批量设置
+static int l_set_hitbox_active(lua_State *p_L) {
+	// 1. 参数校验
+	int argc = lua_gettop(p_L);
+	if (argc < 2) {
+		godot::UtilityFunctions::printerr("native_physics.set_hitbox_active: expected 2 args (node_id, active), got ", argc);
+		return 0;
+	}
+
+	// 2. 解析参数
+	godot::ObjectID node_id = _read_node_id(p_L, 1);
+	bool active = lua_toboolean(p_L, 2);
+
+	// 3. 解析节点
+	godot::Node3D *node = _resolve_node(node_id, "set_hitbox_active");
+	if (!node) {
+		return 0;
+	}
+
+	// 4. 收集所有需要处理的 AttackHitbox3D 节点
+	godot::Vector<godot::Node3D *> hitboxes;
+
+	// 检查 node 本身是否为 AttackHitbox3D
+	if (_is_attack_hitbox(node)) {
+		hitboxes.push_back(node);
+	} else {
+		// 遍历直接子节点（仅一层）
+		_collect_attack_hitboxes(node, hitboxes);
+	}
+
+	// 如果没有找到任何 AttackHitbox3D，静默返回
+	if (hitboxes.is_empty()) {
+		return 0;
+	}
+
+	// 5. 设置每个 hitbox 的 active 状态
+	for (int i = 0; i < hitboxes.size(); i++) {
+		_set_single_hitbox_active(hitboxes[i], active);
+	}
+
+	return 0;
+}
+
 static const luaL_Reg physics_funcs[] = {
 	{"get_aabb", l_get_aabb},
 	{"move_and_slide", l_move_and_slide},
@@ -735,6 +790,7 @@ static const luaL_Reg physics_funcs[] = {
 	{"set_collider_layer", l_set_collider_layer},
 	{"get_collider_layer", l_get_collider_layer},
 	{"intersect_hitbox", l_intersect_hitbox},
+	{"set_hitbox_active", l_set_hitbox_active},
 	{"intersect_cylinder", l_intersect_cylinder},
 	{"intersect_box", l_intersect_box},
 	{nullptr, nullptr}

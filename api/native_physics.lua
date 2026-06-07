@@ -131,4 +131,13 @@ function M.intersect_cylinder(ref_node_id, pos_x, pos_y, pos_z, forward_x, forwa
 ---@param callback fun(target_id: integer): boolean 回调函数，返回 false 终止迭代
 function M.intersect_box(ref_node_id, pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, size_x, size_y, size_z, collision_mask, callback) end
 
+--- native_physics.set_hitbox_active(node_id, active) -> void
+--- 设置指定节点或其子节点中的 AttackHitbox3D 的 active 状态。
+--- 如果 node_id 本身是 AttackHitbox3D，直接设置；
+--- 否则遍历其直接子节点（仅一层），找到所有 AttackHitbox3D 进行批量设置。
+--- active 状态会影响 hitbox 运行时调试填充的颜色显示。
+---@param node_id integer 节点的 ObjectID（可以是 AttackHitbox3D 或包含 AttackHitbox3D 子节点的父节点）
+---@param active boolean 是否激活状态
+function M.set_hitbox_active(node_id, active) end
+
 return M
