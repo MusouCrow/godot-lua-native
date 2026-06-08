@@ -91,6 +91,24 @@ static int l_get_scale(lua_State *p_L) {
 	return 3;
 }
 
+// set_scale(node_id, x, y, z) -> void
+// 设置节点缩放(局部)。
+static int l_set_scale(lua_State *p_L) {
+	const godot::ObjectID node_id = _read_node_id(p_L, 1);
+	const double x = luaL_checknumber(p_L, 2);
+	const double y = luaL_checknumber(p_L, 3);
+	const double z = luaL_checknumber(p_L, 4);
+
+	godot::Node3D *node = _resolve_node(node_id, "set_scale");
+	if (node == nullptr) {
+		return 0;
+	}
+
+	const godot::Vector3 scale((float)x, (float)y, (float)z);
+	node->set_scale(scale);
+	return 0;
+}
+
 // set_rotation(node_id, x, y, z, is_global) -> void
 // 设置节点旋转（度数）。
 static int l_set_rotation(lua_State *p_L) {
@@ -175,6 +193,7 @@ static const luaL_Reg transform_funcs[] = {
 	{"set_position", l_set_position},
 	{"get_position", l_get_position},
 	{"get_scale", l_get_scale},
+	{"set_scale", l_set_scale},
 	{"set_rotation", l_set_rotation},
 	{"get_rotation", l_get_rotation},
 	{"look_at", l_look_at},

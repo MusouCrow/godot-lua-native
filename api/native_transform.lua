@@ -30,6 +30,14 @@ function M.get_position(id, is_global) end
 ---@return number z
 function M.get_scale(id, is_global) end
 
+--- native_transform.set_scale(id, x, y, z) -> void
+--- 设置节点缩放(局部)。
+---@param id integer 节点句柄
+---@param x number X 缩放
+---@param y number Y 缩放
+---@param z number Z 缩放
+function M.set_scale(id, x, y, z) end
+
 --- native_transform.set_rotation(id, x, y, z, is_global) -> void
 --- 设置节点旋转（度数）。
 ---@param id integer 节点句柄
