@@ -13,6 +13,7 @@
 #include "../modules/node_module.h"
 #include "../modules/transform_module.h"
 #include "../modules/physics_module.h"
+#include "../modules/collision_module.h"
 #include "../modules/camera_module.h"
 #include "../modules/material_module.h"
 #include "../modules/res_module.h"
@@ -79,6 +80,10 @@ bool LuaRuntime::initialize() {
 
 	// 注册 native_physics 模块
 	luaL_requiref(state, "native_physics", luaopen_native_physics, 0);
+	lua_pop(state, 1);
+
+	// 注册 native_collision 模块
+	luaL_requiref(state, "native_collision", luaopen_native_collision, 0);
 	lua_pop(state, 1);
 
 	// 注册 native_camera 模块

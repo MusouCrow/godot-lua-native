@@ -90,6 +90,7 @@ set(EXTENSION_SOURCES
 				src/modules/node_module.cpp
 				src/modules/transform_module.cpp
 				src/modules/physics_module.cpp
+				src/modules/collision_module.cpp
 				src/modules/camera_module.cpp
 				src/modules/material_module.cpp
 			src/modules/res_module.cpp

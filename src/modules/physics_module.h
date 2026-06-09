@@ -6,7 +6,7 @@ struct lua_State;
 namespace luagd {
 
 // 打开 native_physics 模块。
-// 提供基础物理与碰撞查询 API。
+// 提供 CharacterBody3D 运动控制与碰撞属性 API。
 int luaopen_native_physics(lua_State *p_L);
 
 } // namespace luagd
