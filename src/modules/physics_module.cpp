@@ -306,13 +306,13 @@ static int l_get_floor_normal(lua_State *p_L) {
 	return 3;
 }
 
-// set_collider_layer(node_id, layer) -> void
+// set_collision_layer(node_id, layer) -> void
 // 设置 CollisionObject3D 的碰撞层。
-static int l_set_collider_layer(lua_State *p_L) {
+static int l_set_collision_layer(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	const uint32_t layer = (uint32_t)luaL_checkinteger(p_L, 2);
 
-	godot::CollisionObject3D *collision_object = _resolve_collision_object(node_id, "set_collider_layer");
+	godot::CollisionObject3D *collision_object = _resolve_collision_object(node_id, "set_collision_layer");
 	if (collision_object == nullptr) {
 		return 0;
 	}
@@ -321,17 +321,46 @@ static int l_set_collider_layer(lua_State *p_L) {
 	return 0;
 }
 
-// get_collider_layer(node_id) -> integer
+// get_collision_layer(node_id) -> integer
 // 获取 CollisionObject3D 的碰撞层。
-static int l_get_collider_layer(lua_State *p_L) {
+static int l_get_collision_layer(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
-	godot::CollisionObject3D *collision_object = _resolve_collision_object(node_id, "get_collider_layer");
+	godot::CollisionObject3D *collision_object = _resolve_collision_object(node_id, "get_collision_layer");
 	if (collision_object == nullptr) {
 		lua_pushinteger(p_L, 0);
 		return 1;
 	}
 
 	lua_pushinteger(p_L, collision_object->get_collision_layer());
+	return 1;
+}
+
+// set_collision_mask(node_id, mask) -> void
+// 设置 CollisionObject3D 的碰撞掩码。
+static int l_set_collision_mask(lua_State *p_L) {
+	const godot::ObjectID node_id = _read_node_id(p_L, 1);
+	const uint32_t mask = (uint32_t)luaL_checkinteger(p_L, 2);
+
+	godot::CollisionObject3D *collision_object = _resolve_collision_object(node_id, "set_collision_mask");
+	if (collision_object == nullptr) {
+		return 0;
+	}
+
+	collision_object->set_collision_mask(mask);
+	return 0;
+}
+
+// get_collision_mask(node_id) -> integer
+// 获取 CollisionObject3D 的碰撞掩码。
+static int l_get_collision_mask(lua_State *p_L) {
+	const godot::ObjectID node_id = _read_node_id(p_L, 1);
+	godot::CollisionObject3D *collision_object = _resolve_collision_object(node_id, "get_collision_mask");
+	if (collision_object == nullptr) {
+		lua_pushinteger(p_L, 0);
+		return 1;
+	}
+
+	lua_pushinteger(p_L, collision_object->get_collision_mask());
 	return 1;
 }
 
@@ -787,8 +816,10 @@ static const luaL_Reg physics_funcs[] = {
 	{"is_on_wall", l_is_on_wall},
 	{"is_on_ceiling", l_is_on_ceiling},
 	{"get_floor_normal", l_get_floor_normal},
-	{"set_collider_layer", l_set_collider_layer},
-	{"get_collider_layer", l_get_collider_layer},
+	{"set_collision_layer", l_set_collision_layer},
+	{"get_collision_layer", l_get_collision_layer},
+	{"set_collision_mask", l_set_collision_mask},
+	{"get_collision_mask", l_get_collision_mask},
 	{"intersect_hitbox", l_intersect_hitbox},
 	{"set_hitbox_active", l_set_hitbox_active},
 	{"intersect_cylinder", l_intersect_cylinder},
