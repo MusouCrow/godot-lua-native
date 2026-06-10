@@ -108,6 +108,7 @@ bool LuaRuntime::initialize() {
 void LuaRuntime::shutdown() {
 	debug_draw_cleanup();
 	audio_cleanup();
+	collision_cleanup();
 	res_cleanup();
 	anim_cleanup();
 	node_cleanup();

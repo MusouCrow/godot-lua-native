@@ -601,4 +601,11 @@ int luaopen_native_collision(lua_State *p_L) {
 	return 1;
 }
 
+void collision_cleanup() {
+	// 清理缓存的 Shape 资源，避免在 PhysicsServer 销毁后才析构导致错误
+	cached_cylinder_shape.unref();
+	cached_box_shape.unref();
+	cached_query_params.unref();
+}
+
 } // namespace luagd
