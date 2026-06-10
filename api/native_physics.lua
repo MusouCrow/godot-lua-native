@@ -9,6 +9,32 @@ local M = {}
 ---@return boolean collided
 function M.move_and_slide(id) end
 
+--- native_physics.move_and_collide(id, x, y, z, test_only, safe_margin, recovery_as_collision, max_collisions)
+--- 按位移移动 PhysicsBody3D，并返回首个碰撞信息。x/y/z 是本帧位移，不是速度。
+---@param id integer 节点句柄
+---@param x number
+---@param y number
+---@param z number
+---@param test_only? boolean
+---@param safe_margin? number
+---@param recovery_as_collision? boolean
+---@param max_collisions? integer
+---@return boolean collided
+---@return number travel_x
+---@return number travel_y
+---@return number travel_z
+---@return number remainder_x
+---@return number remainder_y
+---@return number remainder_z
+---@return number normal_x
+---@return number normal_y
+---@return number normal_z
+---@return number position_x
+---@return number position_y
+---@return number position_z
+---@return integer collider_id
+function M.move_and_collide(id, x, y, z, test_only, safe_margin, recovery_as_collision, max_collisions) end
+
 --- native_physics.set_velocity(id, x, y, z) -> void
 --- 设置 CharacterBody3D 的速度。
 ---@param id integer 节点句柄

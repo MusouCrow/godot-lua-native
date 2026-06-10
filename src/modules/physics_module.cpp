@@ -6,6 +6,8 @@
 #include <godot_cpp/classes/collision_object3d.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/object_id.hpp>
+#include <godot_cpp/classes/kinematic_collision3d.hpp>
+#include <godot_cpp/classes/physics_body3d.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
 extern "C" {
@@ -64,6 +66,21 @@ static godot::CollisionObject3D *_resolve_collision_object(godot::ObjectID p_nod
 	return collision_object;
 }
 
+static godot::PhysicsBody3D *_resolve_physics_body(godot::ObjectID p_node_id, const char *p_func_name) {
+	godot::Node3D *node = _resolve_node(p_node_id, p_func_name);
+	if (node == nullptr) {
+		return nullptr;
+	}
+
+	godot::PhysicsBody3D *body = godot::Object::cast_to<godot::PhysicsBody3D>(node);
+	if (body == nullptr) {
+		godot::UtilityFunctions::printerr("native_physics.", p_func_name, ": node is not PhysicsBody3D, id ", p_node_id);
+		return nullptr;
+	}
+
+	return body;
+}
+
 // move_and_slide(node_id) -> bool
 // 执行移动并滑动。
 static int l_move_and_slide(lua_State *p_L) {
@@ -76,6 +93,54 @@ static int l_move_and_slide(lua_State *p_L) {
 
 	lua_pushboolean(p_L, body->move_and_slide());
 	return 1;
+}
+
+// move_and_collide(node_id, x, y, z, test_only, safe_margin, recovery_as_collision, max_collisions)
+// -> collided, travel_x, travel_y, travel_z, remainder_x, remainder_y, remainder_z,
+//    normal_x, normal_y, normal_z, position_x, position_y, position_z, collider_id
+// 按位移移动 PhysicsBody3D，并返回首个碰撞信息。
+static int l_move_and_collide(lua_State *p_L) {
+	const godot::ObjectID node_id = _read_node_id(p_L, 1);
+	const double x = luaL_checknumber(p_L, 2);
+	const double y = luaL_checknumber(p_L, 3);
+	const double z = luaL_checknumber(p_L, 4);
+	const bool test_only = lua_toboolean(p_L, 5);
+	const float safe_margin = (float)luaL_optnumber(p_L, 6, 0.001);
+	const bool recovery_as_collision = lua_toboolean(p_L, 7);
+	const int max_collisions = (int)luaL_optinteger(p_L, 8, 1);
+
+	godot::PhysicsBody3D *body = _resolve_physics_body(node_id, "move_and_collide");
+	if (body == nullptr) {
+		lua_pushboolean(p_L, false);
+		for (int i = 0; i < 12; i++) { lua_pushnumber(p_L, 0); }
+		lua_pushinteger(p_L, 0);
+		return 14;
+	}
+
+	const godot::Vector3 motion((float)x, (float)y, (float)z);
+	godot::Ref<godot::KinematicCollision3D> collision = body->move_and_collide(motion, test_only, safe_margin, recovery_as_collision, max_collisions);
+
+	if (collision.is_null()) {
+		lua_pushboolean(p_L, false);
+		for (int i = 0; i < 12; i++) { lua_pushnumber(p_L, 0); }
+		lua_pushinteger(p_L, 0);
+		return 14;
+	}
+
+	const godot::Vector3 travel = collision->get_travel();
+	const godot::Vector3 remainder = collision->get_remainder();
+	const godot::Vector3 normal = collision->get_normal(0);
+	const godot::Vector3 position = collision->get_position(0);
+	const int64_t collider_id = collision->get_collider_id(0);
+
+	lua_pushboolean(p_L, true);
+	lua_pushnumber(p_L, travel.x); lua_pushnumber(p_L, travel.y); lua_pushnumber(p_L, travel.z);
+	lua_pushnumber(p_L, remainder.x); lua_pushnumber(p_L, remainder.y); lua_pushnumber(p_L, remainder.z);
+	lua_pushnumber(p_L, normal.x); lua_pushnumber(p_L, normal.y); lua_pushnumber(p_L, normal.z);
+	lua_pushnumber(p_L, position.x); lua_pushnumber(p_L, position.y); lua_pushnumber(p_L, position.z);
+	lua_pushinteger(p_L, collider_id);
+
+	return 14;
 }
 
 // set_velocity(node_id, x, y, z) -> void
@@ -254,6 +319,7 @@ static int l_get_collision_mask(lua_State *p_L) {
 
 static const luaL_Reg physics_funcs[] = {
 	{"move_and_slide", l_move_and_slide},
+	{"move_and_collide", l_move_and_collide},
 	{"set_velocity", l_set_velocity},
 	{"get_velocity", l_get_velocity},
 	{"get_real_velocity", l_get_real_velocity},
