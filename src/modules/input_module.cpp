@@ -174,6 +174,30 @@ static int l_vibrate(lua_State *p_L) {
 	return 0;
 }
 
+// native_input.get_joy_name(device) -> string
+// 返回手柄设备名称，用于识别设备类型。
+// device: 设备索引（通常为 0）
+static int l_get_joy_name(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 1) {
+		godot::UtilityFunctions::printerr("native_input.get_joy_name: expected 1 argument (device), got ", argc);
+		lua_pushstring(p_L, "");
+		return 1;
+	}
+
+	int device = luaL_checkinteger(p_L, 1);
+	godot::Input *input = godot::Input::get_singleton();
+	if (input != nullptr) {
+		godot::String name = input->get_joy_name(device);
+		godot::CharString utf8_name = name.utf8();
+		lua_pushstring(p_L, utf8_name.get_data());
+		return 1;
+	}
+
+	lua_pushstring(p_L, "");
+	return 1;
+}
+
 static const luaL_Reg input_funcs[] = {
 	{"bind_input", l_bind_input},
 	{"is_pressed", l_is_pressed},
@@ -183,6 +207,7 @@ static const luaL_Reg input_funcs[] = {
 	{"get_axis", l_get_axis},
 	{"get_vector", l_get_vector},
 	{"vibrate", l_vibrate},
+	{"get_joy_name", l_get_joy_name},
 	{nullptr, nullptr}
 };
 

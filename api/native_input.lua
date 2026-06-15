@@ -61,4 +61,10 @@ function M.get_vector(left_action_name, right_action_name, up_action_name, down_
 ---@return nil 当前设备不支持震动时通常会被底层忽略
 function M.vibrate(weak, strong, duration) end
 
+--- native_input.get_joy_name(device) -> string
+--- 返回手柄设备名称，用于识别设备类型。
+---@param device number 设备索引（通常为 0）
+---@return string name 设备名称，如 "Xbox Controller"、"Steam Virtual Gamepad" 等；设备不存在时返回空字符串
+function M.get_joy_name(device) end
+
 return M
