@@ -95,6 +95,7 @@ set(EXTENSION_SOURCES
 				src/modules/material_module.cpp
 			src/modules/res_module.cpp
 				src/modules/debug_draw_module.cpp
+				src/modules/skeleton_module.cpp
 				src/debug_draw/debug_draw_scene.cpp
 				src/debug_draw/debug_draw_build.cpp
 )

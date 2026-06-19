@@ -18,6 +18,7 @@
 #include "../modules/material_module.h"
 #include "../modules/res_module.h"
 #include "../modules/debug_draw_module.h"
+#include "../modules/skeleton_module.h"
 
 extern "C" {
 #include <lua.h>
@@ -100,6 +101,10 @@ bool LuaRuntime::initialize() {
 
 	// 注册 native_debug_draw 模块
 	luaL_requiref(state, "native_debug_draw", luaopen_native_debug_draw, 0);
+	lua_pop(state, 1);
+
+	// 注册 native_skeleton 模块
+	luaL_requiref(state, "native_skeleton", luaopen_native_skeleton, 0);
 	lua_pop(state, 1);
 
 	return true;
