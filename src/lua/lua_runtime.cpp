@@ -19,6 +19,7 @@
 #include "../modules/res_module.h"
 #include "../modules/debug_draw_module.h"
 #include "../modules/skeleton_module.h"
+#include "../modules/ai_module.h"
 
 extern "C" {
 #include <lua.h>
@@ -107,6 +108,10 @@ bool LuaRuntime::initialize() {
 	luaL_requiref(state, "native_skeleton", luaopen_native_skeleton, 0);
 	lua_pop(state, 1);
 
+	// 注册 native_ai 模块
+	luaL_requiref(state, "native_ai", luaopen_native_ai, 0);
+	lua_pop(state, 1);
+
 	return true;
 }
 
@@ -116,6 +121,7 @@ void LuaRuntime::shutdown() {
 	collision_cleanup();
 	res_cleanup();
 	anim_cleanup();
+	ai_cleanup();
 	node_cleanup();
 	if (state != nullptr) {
 		lua_close(state);
