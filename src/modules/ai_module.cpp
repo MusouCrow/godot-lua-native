@@ -69,6 +69,9 @@ static int l_create(lua_State *p_L) {
 
 	godot::NavigationAgent3D *agent = memnew(godot::NavigationAgent3D);
 	agent->set_avoidance_enabled(true);
+	agent->set_path_desired_distance(0.25);
+	agent->set_target_desired_distance(0.5);
+	agent->set_max_speed(30.0);
 	parent->add_child(agent);
 
 	const int32_t agent_id = next_id++;
@@ -183,6 +186,24 @@ static int l_get_safe_velocity(lua_State *p_L) {
 	return 3;
 }
 
+// is_navigation_finished(agent_id) -> bool
+// 判断导航是否完成。
+// 返回：true 表示导航已完成（到达目标或最后路径点）。
+// 注意：返回 true 时应停止调用 get_next_path_position，避免站立抖动。
+static int l_is_navigation_finished(lua_State *p_L) {
+	const int32_t agent_id = (int32_t)luaL_checkinteger(p_L, 1);
+
+	NavigationAgentRecord *rec = get_agent(agent_id, "is_navigation_finished");
+	if (rec == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	const bool finished = rec->agent->is_navigation_finished();
+	lua_pushboolean(p_L, finished);
+	return 1;
+}
+
 static const luaL_Reg ai_funcs[] = {
 	{"create", l_create},
 	{"destroy", l_destroy},
@@ -190,6 +211,7 @@ static const luaL_Reg ai_funcs[] = {
 	{"get_next_path_position", l_get_next_path_position},
 	{"set_velocity", l_set_velocity},
 	{"get_safe_velocity", l_get_safe_velocity},
+	{"is_navigation_finished", l_is_navigation_finished},
 	{nullptr, nullptr}
 };
 

@@ -56,4 +56,12 @@ function native_ai.set_velocity(agent_id, vx, vy, vz) end
 ---@return number vz 安全速度Z分量
 function native_ai.get_safe_velocity(agent_id) end
 
+---判断导航是否完成。
+---
+---返回true表示导航已完成（到达目标或最后路径点）。
+---注意：返回true时应停止调用`get_next_path_position`，避免站立抖动。
+---@param agent_id integer AI代理ID
+---@return boolean completed 是否完成
+function native_ai.is_navigation_finished(agent_id) end
+
 return native_ai
