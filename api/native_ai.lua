@@ -2,17 +2,17 @@
 
 ---@brief AI模块：NavigationAgent3D封装
 ---
----提供AI单位寻路和避障功能。
----创建NavigationAgent3D节点、设置目标位置、获取路径位置、
----设置速度并获取避障计算后的安全速度。
+---提供AI单位寻路功能。
+---创建NavigationAgent3D节点、设置目标位置、获取路径位置。
 local native_ai = {}
 
 ---创建NavigationAgent3D并挂载到父节点。
 ---
----避免默认开启（avoidance_enabled = true）。
 ---@param parent_node_id integer 父节点ID（来自`native_node`模块）
+---@param path_desired_distance number 路径期望距离（单位：米）
+---@param target_desired_distance number 目标期望距离（单位：米）
 ---@return integer agent_id，失败返回-1
-function native_ai.create(parent_node_id) end
+function native_ai.create(parent_node_id, path_desired_distance, target_desired_distance) end
 
 ---销毁NavigationAgent3D。
 ---@param agent_id integer AI代理ID
@@ -36,26 +36,6 @@ function native_ai.set_target_position(agent_id, x, y, z) end
 ---@return number z 下一个位置Z坐标
 function native_ai.get_next_path_position(agent_id) end
 
----设置速度。
----
----设置期望速度用于避障计算。
----避障系统会尝试满足此速度，但可能因其他代理或障碍物而修改。
----@param agent_id integer AI代理ID
----@param vx number X方向速度分量
----@param vy number Y方向速度分量
----@param vz number Z方向速度分量
-function native_ai.set_velocity(agent_id, vx, vy, vz) end
-
----获取安全速度。
----
----读取避障计算后的安全速度（由`velocity_computed`信号更新）。
----当avoidance_enabled为true时有实际意义。
----@param agent_id integer AI代理ID
----@return number vx 安全速度X分量
----@return number vy 安全速度Y分量
----@return number vz 安全速度Z分量
-function native_ai.get_safe_velocity(agent_id) end
-
 ---判断导航是否完成。
 ---
 ---返回true表示导航已完成（到达目标或最后路径点）。
@@ -63,5 +43,17 @@ function native_ai.get_safe_velocity(agent_id) end
 ---@param agent_id integer AI代理ID
 ---@return boolean completed 是否完成
 function native_ai.is_navigation_finished(agent_id) end
+
+---查询导航网格上离给定坐标最近的点。
+---
+---将任意空间坐标投影到可导航的表面上。
+---@param agent_id integer AI代理ID（用于获取navigation map）
+---@param x number 查询点X坐标
+---@param y number 查询点Y坐标
+---@param z number 查询点Z坐标
+---@return number closest_x 导航网格上最近点X坐标
+---@return number closest_y 导航网格上最近点Y坐标
+---@return number closest_z 导航网格上最近点Z坐标
+function native_ai.map_get_closest_point(agent_id, x, y, z) end
 
 return native_ai

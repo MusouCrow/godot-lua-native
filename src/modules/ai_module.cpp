@@ -7,11 +7,11 @@
 
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/navigation_agent3d.hpp>
+#include <godot_cpp/classes/navigation_server3d.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/classes/window.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
-#include <godot_cpp/variant/callable_method_pointer.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
 extern "C" {
@@ -24,8 +24,6 @@ namespace luagd {
 struct NavigationAgentRecord {
 	int32_t id;
 	godot::NavigationAgent3D *agent;
-	godot::Vector3 safe_velocity;
-	godot::Callable velocity_computed_callback;
 };
 
 static godot::HashMap<int32_t, NavigationAgentRecord> agents;
@@ -47,18 +45,12 @@ static NavigationAgentRecord *get_agent(int32_t p_id, const char *p_func_name) {
 	return rec;
 }
 
-static void _on_velocity_computed_callback(godot::Vector3 p_safe_velocity, int32_t p_agent_id) {
-	if (!agents.has(p_agent_id)) {
-		return;
-	}
-
-	agents[p_agent_id].safe_velocity = p_safe_velocity;
-}
-
-// create(parent_node_id) -> agent_id
+// create(parent_node_id, path_desired_distance, target_desired_distance) -> agent_id
 // 创建 NavigationAgent3D 并挂载到父节点。
 static int l_create(lua_State *p_L) {
 	const godot::ObjectID parent_id = godot::ObjectID((uint64_t)luaL_checkinteger(p_L, 1));
+	const double path_desired_distance = luaL_checknumber(p_L, 2);
+	const double target_desired_distance = luaL_checknumber(p_L, 3);
 
 	godot::Node3D *parent = node_resolve(parent_id);
 	if (parent == nullptr) {
@@ -68,20 +60,14 @@ static int l_create(lua_State *p_L) {
 	}
 
 	godot::NavigationAgent3D *agent = memnew(godot::NavigationAgent3D);
-	agent->set_avoidance_enabled(true);
-	agent->set_path_desired_distance(0.25);
-	agent->set_target_desired_distance(0.5);
-	agent->set_max_speed(30.0);
+	agent->set_path_desired_distance(path_desired_distance);
+	agent->set_target_desired_distance(target_desired_distance);
 	parent->add_child(agent);
 
 	const int32_t agent_id = next_id++;
 	NavigationAgentRecord rec;
 	rec.id = agent_id;
 	rec.agent = agent;
-	rec.safe_velocity = godot::Vector3(0, 0, 0);
-
-	rec.velocity_computed_callback = callable_mp_static(&_on_velocity_computed_callback).bind(agent_id);
-	agent->connect("velocity_computed", rec.velocity_computed_callback);
 
 	agents[agent_id] = rec;
 
@@ -99,14 +85,8 @@ static int l_destroy(lua_State *p_L) {
 	}
 
 	NavigationAgentRecord rec = agents[agent_id];
-	if (rec.agent != nullptr) {
-		if (rec.agent->is_connected("velocity_computed", rec.velocity_computed_callback)) {
-			rec.agent->disconnect("velocity_computed", rec.velocity_computed_callback);
-		}
-
-		if (rec.agent->is_inside_tree()) {
-			rec.agent->queue_free();
-		}
+	if (rec.agent != nullptr && rec.agent->is_inside_tree()) {
+		rec.agent->queue_free();
 	}
 
 	agents.erase(agent_id);
@@ -150,42 +130,6 @@ static int l_get_next_path_position(lua_State *p_L) {
 	return 3;
 }
 
-// set_velocity(agent_id, vx, vy, vz) -> void
-// 设置速度（用于避障计算）。
-static int l_set_velocity(lua_State *p_L) {
-	const int32_t agent_id = (int32_t)luaL_checkinteger(p_L, 1);
-	const double vx = luaL_checknumber(p_L, 2);
-	const double vy = luaL_checknumber(p_L, 3);
-	const double vz = luaL_checknumber(p_L, 4);
-
-	NavigationAgentRecord *rec = get_agent(agent_id, "set_velocity");
-	if (rec == nullptr) {
-		return 0;
-	}
-
-	rec->agent->set_velocity(godot::Vector3(vx, vy, vz));
-	return 0;
-}
-
-// get_safe_velocity(agent_id) -> vx, vy, vz
-// 获取安全速度（由 velocity_computed 信号更新）。
-static int l_get_safe_velocity(lua_State *p_L) {
-	const int32_t agent_id = (int32_t)luaL_checkinteger(p_L, 1);
-
-	NavigationAgentRecord *rec = get_agent(agent_id, "get_safe_velocity");
-	if (rec == nullptr) {
-		lua_pushnumber(p_L, 0);
-		lua_pushnumber(p_L, 0);
-		lua_pushnumber(p_L, 0);
-		return 3;
-	}
-
-	lua_pushnumber(p_L, rec->safe_velocity.x);
-	lua_pushnumber(p_L, rec->safe_velocity.y);
-	lua_pushnumber(p_L, rec->safe_velocity.z);
-	return 3;
-}
-
 // is_navigation_finished(agent_id) -> bool
 // 判断导航是否完成。
 // 返回：true 表示导航已完成（到达目标或最后路径点）。
@@ -204,14 +148,41 @@ static int l_is_navigation_finished(lua_State *p_L) {
 	return 1;
 }
 
+// map_get_closest_point(agent_id, x, y, z) -> x, y, z
+// 查询导航网格上离给定坐标最近的点。
+// 通过 agent_id 获取其所在的 navigation map，然后查询最近点。
+static int l_map_get_closest_point(lua_State *p_L) {
+	const int32_t agent_id = (int32_t)luaL_checkinteger(p_L, 1);
+	const double x = luaL_checknumber(p_L, 2);
+	const double y = luaL_checknumber(p_L, 3);
+	const double z = luaL_checknumber(p_L, 4);
+
+	NavigationAgentRecord *rec = get_agent(agent_id, "map_get_closest_point");
+	if (rec == nullptr) {
+		lua_pushnumber(p_L, x);
+		lua_pushnumber(p_L, y);
+		lua_pushnumber(p_L, z);
+		return 3;
+	}
+
+	const godot::RID map = rec->agent->get_navigation_map();
+	godot::NavigationServer3D *nav_server = godot::NavigationServer3D::get_singleton();
+	const godot::Vector3 to_point(x, y, z);
+	const godot::Vector3 closest_point = nav_server->map_get_closest_point(map, to_point);
+
+	lua_pushnumber(p_L, closest_point.x);
+	lua_pushnumber(p_L, closest_point.y);
+	lua_pushnumber(p_L, closest_point.z);
+	return 3;
+}
+
 static const luaL_Reg ai_funcs[] = {
 	{"create", l_create},
 	{"destroy", l_destroy},
 	{"set_target_position", l_set_target_position},
 	{"get_next_path_position", l_get_next_path_position},
-	{"set_velocity", l_set_velocity},
-	{"get_safe_velocity", l_get_safe_velocity},
 	{"is_navigation_finished", l_is_navigation_finished},
+	{"map_get_closest_point", l_map_get_closest_point},
 	{nullptr, nullptr}
 };
 
