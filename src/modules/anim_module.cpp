@@ -63,6 +63,7 @@ static const int32_t INVALID_ANIMATOR_ID = -1;
 struct Blend2DPointRecord {
 	godot::StringName anim_name;
 	godot::Vector2 position;
+	double speed;
 };
 
 struct SlotRecord {
@@ -459,6 +460,20 @@ static bool _assign_slot_blend2d(AnimatorRecord *p_animator, LayerRecord *p_laye
 		godot::Ref<godot::AnimationNodeAnimation> anim_node;
 		anim_node.instantiate();
 		anim_node->set_animation(point.anim_name);
+
+		if (point.speed != 1.0) {
+			godot::Ref<godot::Animation> anim = p_animator->animation_tree->get_animation(point.anim_name);
+			if (!anim.is_null()) {
+				double original_length = anim->get_length();
+				anim_node->set_use_custom_timeline(true);
+				anim_node->set_stretch_time_scale(true);
+				anim_node->set_timeline_length(original_length / point.speed);
+				anim_node->set_loop_mode(anim->get_loop_mode());
+			} else {
+				godot::UtilityFunctions::printerr("native_anim.play_blend2d: failed to get animation for speed adjustment: ", godot::String(point.anim_name));
+			}
+		}
+
 		node->add_blend_point(anim_node, point.position);
 	}
 
@@ -934,6 +949,7 @@ static int l_set_blend2d_point(lua_State *p_L) {
 	const char *anim_name_cstr = luaL_checkstring(p_L, 3);
 	double x = luaL_checknumber(p_L, 4);
 	double y = luaL_checknumber(p_L, 5);
+	double speed = luaL_optnumber(p_L, 6, 1.0);
 
 	AnimatorRecord *animator = _get_animator(animator_id, "set_blend2d_point");
 	if (animator == nullptr) {
@@ -946,16 +962,10 @@ static int l_set_blend2d_point(lua_State *p_L) {
 		return 1;
 	}
 	const godot::StringName anim_name(anim_name_cstr);
-	for (int32_t i = 0; i < layer->blend2d_points.size(); i++) {
-		if (layer->blend2d_points[i].anim_name == anim_name) {
-			layer->blend2d_points.write[i].position = godot::Vector2((float)x, (float)y);
-			_push_bool(p_L, true);
-			return 1;
-		}
-	}
 	Blend2DPointRecord point;
 	point.anim_name = anim_name;
 	point.position = godot::Vector2((float)x, (float)y);
+	point.speed = speed;
 	layer->blend2d_points.push_back(point);
 	_push_bool(p_L, true);
 	return 1;

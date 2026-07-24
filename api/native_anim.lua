@@ -76,15 +76,16 @@ function M.play(animator_id, layer_name, anim_name, fade_time) end
 ---@return boolean success 是否成功
 function M.clear_blend2d(animator_id, layer_name) end
 
---- native_anim.set_blend2d_point(animator_id, layer_name, anim_name, x, y) -> bool
+--- native_anim.set_blend2d_point(animator_id, layer_name, anim_name, x, y, speed) -> bool
 --- 为指定 Layer 注册一个 Blend2D 采样点。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@param anim_name string 动画名
 ---@param x number Blend2D X 坐标
 ---@param y number Blend2D Y 坐标
+---@param speed? number 播放速度倍率，默认 1.0
 ---@return boolean success 是否成功
-function M.set_blend2d_point(animator_id, layer_name, anim_name, x, y) end
+function M.set_blend2d_point(animator_id, layer_name, anim_name, x, y, speed) end
 
 --- native_anim.play_blend2d(animator_id, layer_name, fade_time) -> bool
 --- 在指定 Layer 上切换到 Blend2D 播放模式。
