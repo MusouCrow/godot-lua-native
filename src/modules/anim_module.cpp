@@ -69,6 +69,7 @@ struct Blend2DPointRecord {
 struct SlotRecord {
 	int32_t source_kind;
 	bool playing;
+	bool looping;
 	godot::StringName anim_name;
 	godot::StringName source_node_name;
 	godot::StringName time_scale_node_name;
@@ -340,6 +341,7 @@ static void _slot_reset(SlotRecord *p_slot) {
 	}
 	p_slot->source_kind = SOURCE_NONE;
 	p_slot->playing = false;
+	p_slot->looping = false;
 	p_slot->anim_name = godot::StringName();
 }
 
@@ -420,6 +422,10 @@ static bool _assign_slot_anim(AnimatorRecord *p_animator, LayerRecord *p_layer, 
 	p_slot->source_kind = SOURCE_ANIM;
 	p_slot->playing = true;
 	p_slot->anim_name = p_anim_name;
+
+	godot::Ref<godot::Animation> anim = p_animator->animation_tree->get_animation(p_anim_name);
+	p_slot->looping = !anim.is_null() && anim->get_loop_mode() != godot::Animation::LOOP_NONE;
+
 	_set_slot_speed_runtime(p_animator, p_layer, p_slot);
 	return true;
 }
@@ -450,6 +456,8 @@ static bool _assign_slot_blend2d(AnimatorRecord *p_animator, LayerRecord *p_laye
 	node->set_max_space(godot::Vector2(1.0f, 1.0f));
 	node->set_use_sync(true);
 
+	bool looping = false;
+
 	for (int32_t i = 0; i < p_layer->blend2d_points.size(); i++) {
 		const Blend2DPointRecord &point = p_layer->blend2d_points[i];
 		if (!_has_animation(p_animator, point.anim_name)) {
@@ -461,17 +469,20 @@ static bool _assign_slot_blend2d(AnimatorRecord *p_animator, LayerRecord *p_laye
 		anim_node.instantiate();
 		anim_node->set_animation(point.anim_name);
 
-		if (point.speed != 1.0) {
-			godot::Ref<godot::Animation> anim = p_animator->animation_tree->get_animation(point.anim_name);
-			if (!anim.is_null()) {
+		godot::Ref<godot::Animation> anim = p_animator->animation_tree->get_animation(point.anim_name);
+		if (!anim.is_null()) {
+			if (anim->get_loop_mode() != godot::Animation::LOOP_NONE) {
+				looping = true;
+			}
+			if (point.speed != 1.0) {
 				double original_length = anim->get_length();
 				anim_node->set_use_custom_timeline(true);
 				anim_node->set_stretch_time_scale(true);
 				anim_node->set_timeline_length(original_length / point.speed);
 				anim_node->set_loop_mode(anim->get_loop_mode());
-			} else {
-				godot::UtilityFunctions::printerr("native_anim.play_blend2d: failed to get animation for speed adjustment: ", godot::String(point.anim_name));
 			}
+		} else {
+			godot::UtilityFunctions::printerr("native_anim.play_blend2d: failed to get animation: ", godot::String(point.anim_name));
 		}
 
 		node->add_blend_point(anim_node, point.position);
@@ -483,6 +494,7 @@ static bool _assign_slot_blend2d(AnimatorRecord *p_animator, LayerRecord *p_laye
 	p_slot->source_node_name = node_name;
 	p_slot->source_kind = SOURCE_BLEND2D;
 	p_slot->playing = true;
+	p_slot->looping = looping;
 	p_slot->anim_name = godot::StringName();
 	_set_slot_speed_runtime(p_animator, p_layer, p_slot);
 	_set_slot_blend_position_runtime(p_animator, p_layer, p_slot);
@@ -1200,6 +1212,25 @@ static int l_is_layer_fading(lua_State *p_L) {
 	return 1;
 }
 
+static int l_is_layer_looping(lua_State *p_L) {
+	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
+	const char *layer_name_cstr = luaL_checkstring(p_L, 2);
+	AnimatorRecord *animator = _get_animator(animator_id, "is_layer_looping");
+	if (animator == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+	LayerRecord *layer = _get_layer(animator, godot::StringName(layer_name_cstr), "is_layer_looping");
+	if (layer == nullptr) {
+		_push_bool(p_L, false);
+		return 1;
+	}
+
+	SlotRecord *slot = _get_active_slot(layer);
+	_push_bool(p_L, slot != nullptr && slot->playing && slot->looping);
+	return 1;
+}
+
 // 由 Lua 显式推进 fade 和 AnimationTree。
 static int l_update(lua_State *p_L) {
 	int32_t animator_id = (int32_t)luaL_checkinteger(p_L, 1);
@@ -1257,6 +1288,7 @@ static const luaL_Reg anim_funcs[] = {
 	{"get_layer_length", l_get_layer_length},
 	{"is_layer_playing", l_is_layer_playing},
 	{"is_layer_fading", l_is_layer_fading},
+	{"is_layer_looping", l_is_layer_looping},
 	{"update", l_update},
 	{nullptr, nullptr}
 };

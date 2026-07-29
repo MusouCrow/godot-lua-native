@@ -170,6 +170,15 @@ function M.is_layer_playing(animator_id, layer_name) end
 ---@return boolean fading 当前 Layer 是否仍在淡入淡出
 function M.is_layer_fading(animator_id, layer_name) end
 
+--- native_anim.is_layer_looping(animator_id, layer_name) -> bool
+--- 返回当前 active_slot 的动画是否按 loop_mode 循环。
+--- 在 play/play_blend2d 调用且 native_anim.update 执行后，该值才会正确反映
+--- 当前 Layer 所播放动画的 Animation.loop_mode。
+---@param animator_id integer Animator id
+---@param layer_name string Layer 名称
+---@return boolean looping 当前 Layer 是否循环；Layer 无效或未播放时返回 false
+function M.is_layer_looping(animator_id, layer_name) end
+
 --- native_anim.update(animator_id, delta) -> bool
 --- 推进 Animator 一帧并刷新各 Layer 运行时状态。
 ---@param animator_id integer Animator id
