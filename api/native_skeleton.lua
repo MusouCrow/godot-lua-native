@@ -83,4 +83,12 @@ function M.set_bone_scale(skeleton_node_id, bone_name, x, y, z, is_global) end
 ---@return number z
 function M.get_bone_scale(skeleton_node_id, bone_name, is_global) end
 
+--- native_skeleton.copy_pose(src_skeleton_id, dst_skeleton_id) -> bool
+--- 从源骨架复制所有骨骼姿势到目标骨架。
+--- 要求两个骨架的骨骼数量一致。
+---@param src_skeleton_id integer 源 Skeleton3D 节点句柄
+---@param dst_skeleton_id integer 目标 Skeleton3D 节点句柄
+---@return boolean success 是否成功复制
+function M.copy_pose(src_skeleton_id, dst_skeleton_id) end
+
 return M

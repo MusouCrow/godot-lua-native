@@ -336,6 +336,41 @@ static int l_get_bone_scale(lua_State *p_L) {
 	return 3;
 }
 
+// copy_pose(src_skeleton_id, dst_skeleton_id) -> bool
+// 从源骨架复制所有骨骼姿势到目标骨架。
+static int l_copy_pose(lua_State *p_L) {
+	const godot::ObjectID src_id = _read_node_id(p_L, 1);
+	const godot::ObjectID dst_id = _read_node_id(p_L, 2);
+
+	godot::Skeleton3D *src_skeleton = _resolve_skeleton(src_id, "copy_pose");
+	if (src_skeleton == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Skeleton3D *dst_skeleton = _resolve_skeleton(dst_id, "copy_pose");
+	if (dst_skeleton == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	int src_bone_count = src_skeleton->get_bone_count();
+	int dst_bone_count = dst_skeleton->get_bone_count();
+	if (src_bone_count != dst_bone_count) {
+		godot::UtilityFunctions::printerr("native_skeleton.copy_pose: bone count mismatch, src=", src_bone_count, " dst=", dst_bone_count);
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	for (int i = 0; i < src_bone_count; ++i) {
+		godot::Transform3D pose = src_skeleton->get_bone_pose(i);
+		dst_skeleton->set_bone_pose(i, pose);
+	}
+
+	lua_pushboolean(p_L, true);
+	return 1;
+}
+
 static const luaL_Reg skeleton_funcs[] = {
 	{"bone_exists", l_bone_exists},
 	{"get_bone_count", l_get_bone_count},
@@ -346,6 +381,7 @@ static const luaL_Reg skeleton_funcs[] = {
 	{"get_bone_rotation", l_get_bone_rotation},
 	{"set_bone_scale", l_set_bone_scale},
 	{"get_bone_scale", l_get_bone_scale},
+	{"copy_pose", l_copy_pose},
 	{nullptr, nullptr}
 };
 
