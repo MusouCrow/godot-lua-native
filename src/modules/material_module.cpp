@@ -181,10 +181,49 @@ static int l_set_transparency(lua_State *p_L) {
 	return 1;
 }
 
+// enable_cast_shadow(node_id, enabled) -> count
+// 设置节点自身及其直接子节点的阴影投射开关。
+// enabled: true=投射阴影(ON)，false=关闭阴影(OFF)。
+static int l_enable_cast_shadow(lua_State *p_L) {
+	const godot::ObjectID node_id = _read_node_id(p_L, 1);
+	const bool enabled = lua_toboolean(p_L, 2);
+
+	if (node_id.is_null()) {
+		godot::UtilityFunctions::printerr("native_material.enable_cast_shadow: node id is 0");
+		lua_pushinteger(p_L, 0);
+		return 1;
+	}
+
+	godot::Node3D *root_node_3d = node_resolve(node_id);
+	if (root_node_3d == nullptr) {
+		godot::UtilityFunctions::printerr("native_material.enable_cast_shadow: node is no longer valid, id ", node_id);
+		lua_pushinteger(p_L, 0);
+		return 1;
+	}
+
+	godot::Node *root_node = godot::Object::cast_to<godot::Node>(root_node_3d);
+	if (root_node == nullptr) {
+		lua_pushinteger(p_L, 0);
+		return 1;
+	}
+
+	const godot::GeometryInstance3D::ShadowCastingSetting shadow_mode = enabled
+			? godot::GeometryInstance3D::SHADOW_CASTING_SETTING_ON
+			: godot::GeometryInstance3D::SHADOW_CASTING_SETTING_OFF;
+
+	int count = _apply_to_self_and_children(root_node, [shadow_mode](godot::GeometryInstance3D *geom) {
+		geom->set_cast_shadows_setting(shadow_mode);
+	});
+
+	lua_pushinteger(p_L, count);
+	return 1;
+}
+
 static const luaL_Reg material_funcs[] = {
 	{"set_param_color", l_set_param_color},
 	{"set_material_override", l_set_material_override},
 	{"set_transparency", l_set_transparency},
+	{"enable_cast_shadow", l_enable_cast_shadow},
 	{nullptr, nullptr}
 };
 

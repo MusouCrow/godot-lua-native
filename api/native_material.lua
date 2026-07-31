@@ -29,4 +29,11 @@ function M.set_material_override(node_id, material_path) end
 ---@return integer count 设置成功的 GeometryInstance3D 节点数量
 function M.set_transparency(node_id, transparency) end
 
+--- native_material.enable_cast_shadow(node_id, enabled) -> integer
+--- 设置节点自身及其直接子节点的阴影投射开关。
+---@param node_id integer 节点句柄
+---@param enabled boolean true=投射阴影，false=关闭阴影
+---@return integer count 设置成功的 GeometryInstance3D 节点数量
+function M.enable_cast_shadow(node_id, enabled) end
+
 return M
