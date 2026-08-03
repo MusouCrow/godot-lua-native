@@ -10,7 +10,6 @@
 #include <godot_cpp/core/object_id.hpp>
 #include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
-#include <godot_cpp/variant/vector2.hpp>
 
 extern "C" {
 #include <lua.h>
@@ -144,88 +143,6 @@ static int l_set_modulate(lua_State *p_L) {
 	return 0;
 }
 
-// get_position(handle) -> (x, y)
-// 获取 Control 的位置。
-// 返回：节点无效时返回 (0, 0)。
-static int l_get_position(lua_State *p_L) {
-	const godot::ObjectID id = _read_object_id(p_L, 1);
-
-	godot::Control *control = _resolve_control(id, "get_position");
-	if (control == nullptr) {
-		lua_pushnumber(p_L, 0.0);
-		lua_pushnumber(p_L, 0.0);
-		return 2;
-	}
-
-	const godot::Vector2 pos = control->get_position();
-	lua_pushnumber(p_L, pos.x);
-	lua_pushnumber(p_L, pos.y);
-	return 2;
-}
-
-// set_position(handle, x, y) -> void
-// 设置 Control 的位置。
-static int l_set_position(lua_State *p_L) {
-	int argc = lua_gettop(p_L);
-	if (argc < 3) {
-		godot::UtilityFunctions::printerr("native_ui.set_position: expected 3 args (handle, x, y), got ", argc);
-		return 0;
-	}
-
-	const godot::ObjectID id = _read_object_id(p_L, 1);
-	const double x = luaL_checknumber(p_L, 2);
-	const double y = luaL_checknumber(p_L, 3);
-
-	godot::Control *control = _resolve_control(id, "set_position");
-	if (control == nullptr) {
-		return 0;
-	}
-
-	control->set_position(godot::Vector2((float)x, (float)y));
-	return 0;
-}
-
-// get_scale(handle) -> (x, y)
-// 获取 Control 的缩放。
-// 返回：节点无效时返回 (0, 0)。
-static int l_get_scale(lua_State *p_L) {
-	const godot::ObjectID id = _read_object_id(p_L, 1);
-
-	godot::Control *control = _resolve_control(id, "get_scale");
-	if (control == nullptr) {
-		lua_pushnumber(p_L, 0.0);
-		lua_pushnumber(p_L, 0.0);
-		return 2;
-	}
-
-	const godot::Vector2 scale = control->get_scale();
-	lua_pushnumber(p_L, scale.x);
-	lua_pushnumber(p_L, scale.y);
-	return 2;
-}
-
-// set_scale(handle, x, y) -> void
-// 设置 Control 的缩放。
-static int l_set_scale(lua_State *p_L) {
-	int argc = lua_gettop(p_L);
-	if (argc < 3) {
-		godot::UtilityFunctions::printerr("native_ui.set_scale: expected 3 args (handle, x, y), got ", argc);
-		return 0;
-	}
-
-	const godot::ObjectID id = _read_object_id(p_L, 1);
-	const double x = luaL_checknumber(p_L, 2);
-	const double y = luaL_checknumber(p_L, 3);
-
-	godot::Control *control = _resolve_control(id, "set_scale");
-	if (control == nullptr) {
-		return 0;
-	}
-
-	control->set_scale(godot::Vector2((float)x, (float)y));
-	return 0;
-}
-
 // set_value(handle, value) -> void
 // 设置 Range 的值。
 // 注意：会触发 value_changed 信号。
@@ -252,10 +169,6 @@ static const luaL_Reg ui_funcs[] = {
 	{"get_visible", l_get_visible},
 	{"set_visible", l_set_visible},
 	{"set_modulate", l_set_modulate},
-	{"get_position", l_get_position},
-	{"set_position", l_set_position},
-	{"get_scale", l_get_scale},
-	{"set_scale", l_set_scale},
 	{"set_value", l_set_value},
 	{nullptr, nullptr}
 };

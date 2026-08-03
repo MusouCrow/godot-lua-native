@@ -3,39 +3,44 @@
 ---@class native_transform
 local M = {}
 
---- native_transform.set_position(id, x, y, z, is_global) -> void
+--- native_transform.set_position(id, x, y, z?, is_global?) -> void
 --- 设置节点位置。
+--- Node3D: 需要 x, y, z 三个参数，第 5 个参数为 is_global。
+--- Control: 需要 x, y 两个参数，第 3 或第 4 个参数为 is_global。
 ---@param id integer 节点句柄
 ---@param x number X 坐标
 ---@param y number Y 坐标
----@param z number Z 坐标
+---@param z? number Z 坐标（Control 可省略）
 ---@param is_global? boolean true 为世界坐标，false 为局部坐标
 function M.set_position(id, x, y, z, is_global) end
 
---- native_transform.get_position(id, is_global) -> number, number, number
+--- native_transform.get_position(id, is_global?) -> number, number, number | number, number
 --- 获取节点位置。
+--- Node3D 返回 (x, y, z)，Control 返回 (x, y)。
 ---@param id integer 节点句柄
 ---@param is_global? boolean true 为世界坐标，false 为局部坐标
 ---@return number x
 ---@return number y
----@return number z
+---@return number? z Node3D 返回 z，Control 不返回
 function M.get_position(id, is_global) end
 
---- native_transform.get_scale(id, is_global) -> number, number, number
+--- native_transform.get_scale(id, is_global?) -> number, number, number | number, number
 --- 获取节点缩放。
+--- Node3D 返回 (x, y, z) 支持 is_global，Control 返回 (x, y) 且 is_global 被忽略。
 ---@param id integer 节点句柄
----@param is_global? boolean true 为世界缩放，false 为局部缩放
+---@param is_global? boolean Node3D: true 为世界缩放，false 为局部缩放；Control 忽略此参数
 ---@return number x
 ---@return number y
----@return number z
+---@return number? z Node3D 返回 z，Control 不返回
 function M.get_scale(id, is_global) end
 
---- native_transform.set_scale(id, x, y, z) -> void
---- 设置节点缩放(局部)。
+--- native_transform.set_scale(id, x, y, z?) -> void
+--- 设置节点缩放（局部）。
+--- Node3D 需要 x, y, z 三个参数，Control 需要 x, y 两个参数。
 ---@param id integer 节点句柄
 ---@param x number X 缩放
 ---@param y number Y 缩放
----@param z number Z 缩放
+---@param z? number Z 缩放（Control 可省略）
 function M.set_scale(id, x, y, z) end
 
 --- native_transform.set_rotation(id, x, y, z, is_global) -> void

@@ -32,33 +32,7 @@ function M.set_modulate(handle, r, g, b, a) end
 -- Control
 -- ============================================================================
 
---- native_ui.get_position(handle) -> (x, y)
---- 获取 Control 的位置。
----@param handle integer native_node 节点句柄
----@return number x X 坐标
----@return number y Y 坐标；节点无效时返回 (0, 0)
-function M.get_position(handle) end
-
---- native_ui.set_position(handle, x, y) -> void
---- 设置 Control 的位置。
----@param handle integer native_node 节点句柄
----@param x number X 坐标
----@param y number Y 坐标
-function M.set_position(handle, x, y) end
-
---- native_ui.get_scale(handle) -> (x, y)
---- 获取 Control 的缩放。
----@param handle integer native_node 节点句柄
----@return number x X 轴缩放
----@return number y Y 轴缩放；节点无效时返回 (0, 0)
-function M.get_scale(handle) end
-
---- native_ui.set_scale(handle, x, y) -> void
---- 设置 Control 的缩放。
----@param handle integer native_node 节点句柄
----@param x number X 轴缩放
----@param y number Y 轴缩放
-function M.set_scale(handle, x, y) end
+-- Control 的 position 和 scale 操作已迁移到 native_transform 模块。
 
 -- ============================================================================
 -- Range
