@@ -42,12 +42,12 @@ static godot::ObjectID _read_object_id(lua_State *p_L, int p_index) {
 	return godot::ObjectID((uint64_t)luaL_checkinteger(p_L, p_index));
 }
 
-static godot::Node3D *_resolve_node3d(godot::ObjectID p_id) {
+static godot::Node *_resolve_node(godot::ObjectID p_id) {
 	if (p_id.is_null()) {
 		return nullptr;
 	}
 
-	return godot::Object::cast_to<godot::Node3D>(godot::ObjectDB::get_instance((uint64_t)p_id));
+	return godot::Object::cast_to<godot::Node>(godot::ObjectDB::get_instance((uint64_t)p_id));
 }
 
 static godot::Node *_get_scene_root_node(const char *p_func_name) {
@@ -97,13 +97,13 @@ static void _unregister_reference_node(godot::ObjectID p_id) {
 
 	const NodeRecord rec = nodes[p_id];
 	if (rec.ownership == NODE_OWNERSHIP_REFERENCE) {
-		_remove_child_from_root_table(_get_tracking_root_id(_resolve_node3d(p_id)), p_id);
+		_remove_child_from_root_table(_get_tracking_root_id(_resolve_node(p_id)), p_id);
 	}
 
 	nodes.erase(p_id);
 }
 
-static godot::ObjectID _register_node(godot::Node3D *p_node, NodeOwnership p_ownership) {
+static godot::ObjectID _register_node(godot::Node *p_node, NodeOwnership p_ownership) {
 	if (p_node == nullptr) {
 		return godot::ObjectID();
 	}
@@ -120,12 +120,12 @@ static godot::ObjectID _register_node(godot::Node3D *p_node, NodeOwnership p_own
 	return id;
 }
 
-static godot::Node3D *_get_record_node(const NodeRecord *p_rec) {
+static godot::Node *_get_record_node(const NodeRecord *p_rec) {
 	if (p_rec == nullptr) {
 		return nullptr;
 	}
 
-	return _resolve_node3d(p_rec->id);
+	return _resolve_node(p_rec->id);
 }
 
 static NodeRecord *get_node(godot::ObjectID p_id, const char *p_func_name) {
@@ -135,7 +135,7 @@ static NodeRecord *get_node(godot::ObjectID p_id, const char *p_func_name) {
 	}
 
 	NodeRecord *rec = &nodes[p_id];
-	if (_resolve_node3d(p_id) == nullptr) {
+	if (_resolve_node(p_id) == nullptr) {
 		_unregister_reference_node(p_id);
 		godot::UtilityFunctions::printerr("native_node.", p_func_name, ": node is no longer valid, id ", p_id);
 		return nullptr;
@@ -163,14 +163,7 @@ static int l_get_node_by_path(lua_State *p_L) {
 	}
 
 	godot::Node *found_node = root_node->get_node<godot::Node>(node_path);
-	godot::Node3D *node3d = godot::Object::cast_to<godot::Node3D>(found_node);
-	if (node3d == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.get_node_by_path: node is not a Node3D: ", path);
-		lua_pushinteger(p_L, -1);
-		return 1;
-	}
-
-	const godot::ObjectID node_id = _register_node(node3d, NODE_OWNERSHIP_REFERENCE);
+	const godot::ObjectID node_id = _register_node(found_node, NODE_OWNERSHIP_REFERENCE);
 	lua_pushinteger(p_L, (int64_t)node_id);
 	return 1;
 }
@@ -187,7 +180,7 @@ static int l_get_child_by_path(lua_State *p_L) {
 		return 1;
 	}
 
-	godot::Node3D *owner_node = _get_record_node(owner_rec);
+	godot::Node *owner_node = _get_record_node(owner_rec);
 	if (owner_node == nullptr) {
 		lua_pushinteger(p_L, -1);
 		return 1;
@@ -201,14 +194,7 @@ static int l_get_child_by_path(lua_State *p_L) {
 	}
 
 	godot::Node *found_node = owner_node->get_node<godot::Node>(node_path);
-	godot::Node3D *node3d = godot::Object::cast_to<godot::Node3D>(found_node);
-	if (node3d == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.get_child_by_path: node is not a Node3D: ", path);
-		lua_pushinteger(p_L, -1);
-		return 1;
-	}
-
-	const godot::ObjectID child_id = _register_node(node3d, NODE_OWNERSHIP_REFERENCE);
+	const godot::ObjectID child_id = _register_node(found_node, NODE_OWNERSHIP_REFERENCE);
 	const godot::ObjectID root_id = _get_tracking_root_id(owner_node);
 	root_children[root_id].insert(child_id);
 
@@ -280,16 +266,8 @@ static int l_instantiate(lua_State *p_L) {
 		return 1;
 	}
 
-	godot::Node3D *node3d = godot::Object::cast_to<godot::Node3D>(instance);
-	if (node3d == nullptr) {
-		godot::UtilityFunctions::printerr("native_node.instantiate: instantiated node is not a Node3D: ", scene_path);
-		instance->queue_free();
-		lua_pushinteger(p_L, -1);
-		return 1;
-	}
-
 	root_node->add_child(instance);
-	const godot::ObjectID id = _register_node(node3d, NODE_OWNERSHIP_OWNED);
+	const godot::ObjectID id = _register_node(instance, NODE_OWNERSHIP_OWNED);
 	lua_pushinteger(p_L, (int64_t)id);
 	return 1;
 }
@@ -312,12 +290,12 @@ static int l_destroy(lua_State *p_L) {
 	}
 
 	if (rec.ownership == NODE_OWNERSHIP_OWNED) {
-		godot::Node3D *node = _resolve_node3d(id);
+		godot::Node *node = _resolve_node(id);
 		if (node != nullptr && node->is_inside_tree()) {
 			node->queue_free();
 		}
 	} else {
-		_remove_child_from_root_table(_get_tracking_root_id(_resolve_node3d(id)), id);
+		_remove_child_from_root_table(_get_tracking_root_id(_resolve_node(id)), id);
 	}
 
 	nodes.erase(id);
@@ -333,7 +311,7 @@ static int l_is_valid(lua_State *p_L) {
 		return 1;
 	}
 
-	godot::Node3D *node = _resolve_node3d(id);
+	godot::Node *node = _resolve_node(id);
 	lua_pushboolean(p_L, node != nullptr && node->is_inside_tree());
 	return 1;
 }
@@ -364,6 +342,24 @@ static int l_get_type(lua_State *p_L) {
 
 	const godot::CharString utf8_type = godot::String(_get_record_node(rec)->get_class()).utf8();
 	lua_pushstring(p_L, utf8_type.get_data());
+	return 1;
+}
+
+// get_child_count(id, include_internal) -> count
+// 获取节点直接子节点数量。
+// 返回：子节点数量，节点无效时返回 -1。
+static int l_get_child_count(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const bool include_internal = lua_toboolean(p_L, 2);
+
+	NodeRecord *rec = get_node(id, "get_child_count");
+	if (rec == nullptr) {
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	const int32_t count = _get_record_node(rec)->get_child_count(include_internal);
+	lua_pushinteger(p_L, count);
 	return 1;
 }
 
@@ -409,6 +405,7 @@ static const luaL_Reg node_funcs[] = {
 	{"is_valid", l_is_valid},
 	{"get_name", l_get_name},
 	{"get_type", l_get_type},
+	{"get_child_count", l_get_child_count},
 	{"find_registered_ancestor", l_find_registered_ancestor},
 	{nullptr, nullptr}
 };
@@ -424,8 +421,8 @@ void node_cleanup() {
 	root_node_id = godot::ObjectID();
 }
 
-godot::Node3D *node_resolve(godot::ObjectID p_id) {
-	if (!ensure_main_thread("native_node.node_resolve")) {
+godot::Node *node_resolve_any(godot::ObjectID p_id) {
+	if (!ensure_main_thread("native_node.node_resolve_any")) {
 		return nullptr;
 	}
 
@@ -433,12 +430,21 @@ godot::Node3D *node_resolve(godot::ObjectID p_id) {
 		return nullptr;
 	}
 
-	godot::Node3D *node = _resolve_node3d(p_id);
+	godot::Node *node = _resolve_node(p_id);
 	if (node == nullptr || !node->is_inside_tree()) {
 		return nullptr;
 	}
 
 	return node;
+}
+
+godot::Node3D *node_resolve(godot::ObjectID p_id) {
+	godot::Node *node = node_resolve_any(p_id);
+	if (node == nullptr) {
+		return nullptr;
+	}
+
+	return godot::Object::cast_to<godot::Node3D>(node);
 }
 
 } // namespace luagd

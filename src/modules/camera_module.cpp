@@ -68,9 +68,30 @@ static int l_get_fov(lua_State *p_L) {
 	return 1;
 }
 
+// unproject_position(node_id, x, y, z) -> screen_x, screen_y
+// 将世界坐标投影为视口内 2D 屏幕坐标。
+static int l_unproject_position(lua_State *p_L) {
+	const godot::ObjectID node_id = _read_node_id(p_L, 1);
+	const double x = luaL_checknumber(p_L, 2);
+	const double y = luaL_checknumber(p_L, 3);
+	const double z = luaL_checknumber(p_L, 4);
+
+	godot::Camera3D *camera = _resolve_camera(node_id, "unproject_position");
+	if (camera == nullptr) {
+		return 0;
+	}
+
+	const godot::Vector3 world_point((float)x, (float)y, (float)z);
+	const godot::Vector2 screen_point = camera->unproject_position(world_point);
+	lua_pushnumber(p_L, screen_point.x);
+	lua_pushnumber(p_L, screen_point.y);
+	return 2;
+}
+
 static const luaL_Reg camera_funcs[] = {
 	{"set_fov", l_set_fov},
 	{"get_fov", l_get_fov},
+	{"unproject_position", l_unproject_position},
 	{nullptr, nullptr}
 };
 

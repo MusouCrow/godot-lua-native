@@ -20,6 +20,7 @@
 #include "../modules/debug_draw_module.h"
 #include "../modules/skeleton_module.h"
 #include "../modules/ai_module.h"
+#include "../modules/ui_module.h"
 
 extern "C" {
 #include <lua.h>
@@ -110,6 +111,10 @@ bool LuaRuntime::initialize() {
 
 	// 注册 native_ai 模块
 	luaL_requiref(state, "native_ai", luaopen_native_ai, 0);
+	lua_pop(state, 1);
+
+	// 注册 native_ui 模块
+	luaL_requiref(state, "native_ui", luaopen_native_ui, 0);
 	lua_pop(state, 1);
 
 	return true;

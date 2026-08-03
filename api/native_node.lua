@@ -28,13 +28,13 @@ function M.instantiate(scene_path) end
 function M.destroy(id) end
 
 --- native_node.get_node_by_path(path) -> int
---- 基于全局节点路径查找 Node3D 节点并返回句柄。若节点已注册，返回已有句柄。
+--- 基于全局节点路径查找 Node 节点并返回句柄。若节点已注册，返回已有句柄。
 ---@param path string 全局节点路径（如 "/root/pre_entry/pre_scene/[entity]"）
 ---@return integer id 节点句柄，失败返回 -1
 function M.get_node_by_path(path) end
 
 --- native_node.get_child_by_path(id, path) -> int
---- 基于指定节点查找子节点并返回句柄。
+--- 基于指定节点查找任意类型的子节点并返回句柄。
 ---@param id integer 父节点句柄
 ---@param path string 子节点路径（如 "target" 或 "bones/spine"）
 ---@return integer child_id 子节点句柄，失败返回 -1
@@ -59,8 +59,15 @@ function M.get_name(id) end
 --- native_node.get_type(id) -> string
 --- 获取节点当前的 Godot 运行时类型。
 ---@param id integer 节点句柄
----@return string type 节点类型字符串（如 "Node3D"、"CharacterBody3D"、"Camera3D"）
+---@return string type 节点类型字符串（如 "Node3D"、"CharacterBody3D"、"Control"、"CanvasLayer"）
 function M.get_type(id) end
+
+--- native_node.get_child_count(id, include_internal) -> int
+--- 获取节点直接子节点数量。
+---@param id integer 节点句柄
+---@param include_internal boolean (可选) 是否计入内部子节点，默认 false
+---@return integer count 子节点数量，节点无效时返回 -1
+function M.get_child_count(id, include_internal) end
 
 --- native_node.find_registered_ancestor(node_id) -> int
 --- 从给定的节点 ID 向上查找第一个已注册的祖先节点。

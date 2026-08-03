@@ -4,6 +4,7 @@
 struct lua_State;
 
 namespace godot {
+class Node;
 class Node3D;
 class ObjectID;
 }
@@ -23,6 +24,11 @@ void node_cleanup();
 // 约束：只允许在主线程调用。
 // 仅供其他 native 模块内部使用，失败返回 nullptr。
 godot::Node3D *node_resolve(godot::ObjectID p_id);
+
+// 通过 native_node id 解析任意 Node。
+// 约束：只允许在主线程调用。
+// 仅供其他 native 模块内部使用，失败返回 nullptr。
+godot::Node *node_resolve_any(godot::ObjectID p_id);
 
 } // namespace luagd
 
