@@ -34,6 +34,13 @@ function M.set_modulate(handle, r, g, b, a) end
 
 -- Control 的 position 和 scale 操作已迁移到 native_transform 模块。
 
+--- native_ui.get_size(handle) -> number, number
+--- 获取 Control 节点的尺寸（宽度与高度）。
+---@param handle integer native_node 节点句柄
+---@return number width 宽度；节点无效时返回 0.0
+---@return number height 高度；节点无效时返回 0.0
+function M.get_size(handle) end
+
 -- ============================================================================
 -- Range
 -- ============================================================================

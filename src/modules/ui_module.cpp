@@ -181,12 +181,32 @@ static int l_set_bar_value(lua_State *p_L) {
 	return 0;
 }
 
+// get_size(handle) -> number, number
+// 获取 Control 节点的尺寸（宽度与高度）。
+// 返回：节点无效时返回 0.0, 0.0。
+static int l_get_size(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+
+	godot::Control *control = _resolve_control(id, "get_size");
+	if (control == nullptr) {
+		lua_pushnumber(p_L, 0.0);
+		lua_pushnumber(p_L, 0.0);
+		return 2;
+	}
+
+	const godot::Vector2 size = control->get_size();
+	lua_pushnumber(p_L, size.x);
+	lua_pushnumber(p_L, size.y);
+	return 2;
+}
+
 static const luaL_Reg ui_funcs[] = {
 	{"get_visible", l_get_visible},
 	{"set_visible", l_set_visible},
 	{"set_modulate", l_set_modulate},
 	{"get_bar_value", l_get_bar_value},
 	{"set_bar_value", l_set_bar_value},
+	{"get_size", l_get_size},
 	{nullptr, nullptr}
 };
 
