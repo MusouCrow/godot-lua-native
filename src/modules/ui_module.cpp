@@ -143,20 +143,36 @@ static int l_set_modulate(lua_State *p_L) {
 	return 0;
 }
 
-// set_value(handle, value) -> void
+// get_bar_value(handle) -> number
+// 获取 Range 的值。
+// 返回：节点无效时返回 0.0。
+static int l_get_bar_value(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+
+	godot::Range *range = _resolve_range(id, "get_bar_value");
+	if (range == nullptr) {
+		lua_pushnumber(p_L, 0.0);
+		return 1;
+	}
+
+	lua_pushnumber(p_L, range->get_value());
+	return 1;
+}
+
+// set_bar_value(handle, value) -> void
 // 设置 Range 的值。
 // 注意：会触发 value_changed 信号。
-static int l_set_value(lua_State *p_L) {
+static int l_set_bar_value(lua_State *p_L) {
 	int argc = lua_gettop(p_L);
 	if (argc < 2) {
-		godot::UtilityFunctions::printerr("native_ui.set_value: expected 2 args (handle, value), got ", argc);
+		godot::UtilityFunctions::printerr("native_ui.set_bar_value: expected 2 args (handle, value), got ", argc);
 		return 0;
 	}
 
 	const godot::ObjectID id = _read_object_id(p_L, 1);
 	const double value = luaL_checknumber(p_L, 2);
 
-	godot::Range *range = _resolve_range(id, "set_value");
+	godot::Range *range = _resolve_range(id, "set_bar_value");
 	if (range == nullptr) {
 		return 0;
 	}
@@ -169,7 +185,8 @@ static const luaL_Reg ui_funcs[] = {
 	{"get_visible", l_get_visible},
 	{"set_visible", l_set_visible},
 	{"set_modulate", l_set_modulate},
-	{"set_value", l_set_value},
+	{"get_bar_value", l_get_bar_value},
+	{"set_bar_value", l_set_bar_value},
 	{nullptr, nullptr}
 };
 

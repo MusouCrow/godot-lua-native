@@ -38,10 +38,16 @@ function M.set_modulate(handle, r, g, b, a) end
 -- Range
 -- ============================================================================
 
---- native_ui.set_value(handle, value) -> void
---- 设置 Range 的值，会触发 value_changed 信号。
+--- native_ui.get_bar_value(handle) -> number
+--- 获取 Range 的值（进度条）。
 ---@param handle integer native_node 节点句柄
----@param value number 数值
-function M.set_value(handle, value) end
+---@return number value 当前值；节点无效时返回 0.0
+function M.get_bar_value(handle) end
+
+--- native_ui.set_bar_value(handle, value) -> void
+--- 设置 Range 的值（进度条），会触发 value_changed 信号。
+---@param handle integer native_node 节点句柄
+---@param value number 目标值
+function M.set_bar_value(handle, value) end
 
 return M
