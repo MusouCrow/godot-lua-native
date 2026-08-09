@@ -11,6 +11,7 @@ M.FLAG_ALLOW_BLEND2D = 1
 
 --- native_anim.create_animator(owner_node_id) -> int
 --- 创建 Animator，自动在 owner 节点下挂载内部 AnimationPlayer 和 AnimationTree。
+--- owner 可为 Node3D、Control 或普通 Node。
 ---@param owner_node_id integer native_node 返回的节点 id
 ---@return integer animator_id Animator id，失败返回 -1
 function M.create_animator(owner_node_id) end

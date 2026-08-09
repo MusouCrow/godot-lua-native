@@ -17,7 +17,6 @@
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/animation_tree.hpp>
 #include <godot_cpp/classes/node.hpp>
-#include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/core/object_id.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
@@ -128,8 +127,8 @@ static bool _is_valid_mix_mode(int32_t p_mix_mode) {
 	return p_mix_mode == MIX_BLEND || p_mix_mode == MIX_ADD;
 }
 
-static godot::Node3D *_resolve_owner_node(const AnimatorRecord &p_animator) {
-	return node_resolve(p_animator.owner_node_id);
+static godot::Node *_resolve_owner_node(const AnimatorRecord &p_animator) {
+	return node_resolve_any(p_animator.owner_node_id);
 }
 
 static godot::StringName _make_animation_key(const godot::StringName &p_library_name, const godot::StringName &p_anim_name) {
@@ -656,7 +655,7 @@ static bool _remove_layer_nodes(AnimatorRecord *p_animator, LayerRecord *p_layer
 // 创建 Animator，并在宿主节点下创建内部 AnimationPlayer 和 AnimationTree。
 static int l_create_animator(lua_State *p_L) {
 	godot::ObjectID owner_node_id((uint64_t)luaL_checkinteger(p_L, 1));
-	godot::Node3D *owner = node_resolve(owner_node_id);
+	godot::Node *owner = node_resolve_any(owner_node_id);
 	if (owner == nullptr) {
 		godot::UtilityFunctions::printerr("native_anim.create_animator: invalid owner node id ", owner_node_id);
 		lua_pushinteger(p_L, INVALID_ANIMATOR_ID);
