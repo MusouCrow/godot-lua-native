@@ -72,4 +72,22 @@ function M.intersect_box(ref_node_id, pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, 
 ---@param active boolean 是否激活状态
 function M.set_hitbox_active(node_id, active) end
 
+--- native_collision.set_trigger_callback(area_id, callback) -> void
+--- 绑定 Area3D 的 body_entered / body_exited 信号到 Lua 回调函数。
+--- callback(body_id, is_enter)：body_id 为进入/离开物体的 ObjectID，
+--- is_enter 为 true 表示进入，false 表示离开。
+--- 生命周期由 lua_signal_binding 统一管理，节点销毁时自动解绑。
+---@param area_id integer Area3D 节点的 ObjectID
+---@param callback fun(body_id: integer, is_enter: boolean) 回调函数，body_id 为物体 ObjectID，is_enter 区分进入/离开
+function M.set_trigger_callback(area_id, callback) end
+
+--- native_collision.set_trigger_size(area_id, size_x, size_y, size_z) -> void
+--- 设置 Area3D 所有直接子节点中 CollisionShape3D 的缩放，间接控制触发区域大小。
+--- 仅遍历一层直接子节点，不递归。
+---@param area_id integer Area3D 节点的 ObjectID
+---@param size_x number X 轴缩放系数
+---@param size_y number Y 轴缩放系数
+---@param size_z number Z 轴缩放系数
+function M.set_trigger_size(area_id, size_x, size_y, size_z) end
+
 return M

@@ -77,6 +77,7 @@ set(EXTENSION_NAME "luagd")
 
 set(EXTENSION_SOURCES
 				src/lua/lua_runtime.cpp
+				src/lua/lua_signal_binding.cpp
 				src/host/host_thread_check.cpp
 				src/host/lua_host.cpp
 				src/host/gdextension_entry.cpp

@@ -1,7 +1,9 @@
 #include "collision_module.h"
 
+#include "../lua/lua_signal_binding.h"
 #include "node_module.h"
 
+#include <godot_cpp/classes/area3d.hpp>
 #include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/box_shape3d.hpp>
 #include <godot_cpp/classes/collision_object3d.hpp>
@@ -11,6 +13,7 @@
 #include <godot_cpp/classes/physics_shape_query_parameters3d.hpp>
 #include <godot_cpp/classes/shape3d.hpp>
 #include <godot_cpp/classes/world3d.hpp>
+#include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/object_id.hpp>
 #include <godot_cpp/templates/rb_set.hpp>
@@ -33,6 +36,67 @@ namespace luagd {
 static godot::Ref<godot::CylinderShape3D> cached_cylinder_shape;
 static godot::Ref<godot::BoxShape3D> cached_box_shape;
 static godot::Ref<godot::PhysicsShapeQueryParameters3D> cached_query_params;
+
+// TriggerSignalReceiver：接收 Area3D 的 body_entered / body_exited 信号。
+// 两个信号各持有一个实例，通过 instance_id + is_enter 调用 Lua 回调。
+class TriggerSignalReceiver : public godot::Object {
+	GDCLASS(TriggerSignalReceiver, godot::Object);
+
+private:
+	lua_State *lua_state;
+	int callback_ref;
+
+protected:
+	static void _bind_methods();
+
+public:
+	TriggerSignalReceiver() :
+			lua_state(nullptr),
+			callback_ref(LUA_NOREF) {}
+
+	void setup(lua_State *p_L, int p_callback_ref) {
+		lua_state = p_L;
+		callback_ref = p_callback_ref;
+	}
+
+	void on_body_entered(godot::Node3D *p_body);
+	void on_body_exited(godot::Node3D *p_body);
+};
+
+void TriggerSignalReceiver::_bind_methods() {
+	godot::ClassDB::bind_method(godot::D_METHOD("on_body_entered", "body"), &TriggerSignalReceiver::on_body_entered);
+	godot::ClassDB::bind_method(godot::D_METHOD("on_body_exited", "body"), &TriggerSignalReceiver::on_body_exited);
+}
+
+void TriggerSignalReceiver::on_body_entered(godot::Node3D *p_body) {
+	if (lua_state == nullptr || p_body == nullptr) {
+		return;
+	}
+
+	if (!lua_signal_binding_push_callback(lua_state, callback_ref)) {
+		return;
+	}
+
+	lua_pushinteger(lua_state, (uint64_t)p_body->get_instance_id());
+	lua_pushboolean(lua_state, true);
+
+	lua_signal_binding_call_no_return(lua_state, 2, "trigger.body_entered");
+}
+
+void TriggerSignalReceiver::on_body_exited(godot::Node3D *p_body) {
+	if (lua_state == nullptr || p_body == nullptr) {
+		return;
+	}
+
+	if (!lua_signal_binding_push_callback(lua_state, callback_ref)) {
+		return;
+	}
+
+	lua_pushinteger(lua_state, (uint64_t)p_body->get_instance_id());
+	lua_pushboolean(lua_state, false);
+
+	lua_signal_binding_call_no_return(lua_state, 2, "trigger.body_exited");
+}
 
 static godot::ObjectID _read_node_id(lua_State *p_L, int p_index) {
 	return godot::ObjectID((uint64_t)luaL_checkinteger(p_L, p_index));
@@ -587,12 +651,125 @@ static int l_set_hitbox_active(lua_State *p_L) {
 	return 0;
 }
 
+// set_trigger_callback(area_id, callback) -> void
+// 绑定 Area3D 的 body_entered / body_exited 信号到 Lua 回调函数。
+// callback(body_id, is_enter)：body_id 为进入/离开物体的 ObjectID，
+// is_enter 为 true 表示进入，false 表示离开。
+// 生命周期由 lua_signal_binding 统一管理，节点销毁时自动解绑。
+static int l_set_trigger_callback(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 2) {
+		godot::UtilityFunctions::printerr("native_collision.set_trigger_callback: expected 2 args (area_id, callback), got ", argc);
+		return 0;
+	}
+
+	godot::ObjectID area_id = _read_node_id(p_L, 1);
+	luaL_checktype(p_L, 2, LUA_TFUNCTION);
+
+	godot::Node3D *node = _resolve_node(area_id, "set_trigger_callback");
+	if (!node) {
+		return 0;
+	}
+
+	godot::Area3D *area = godot::Object::cast_to<godot::Area3D>(node);
+	if (!area) {
+		godot::UtilityFunctions::printerr("native_collision.set_trigger_callback: node is not an Area3D, id ", area_id);
+		return 0;
+	}
+
+	// 分别为两个信号保存独立的回调引用
+	int callback_ref_enter = lua_signal_binding_ref_callback(p_L, 2);
+	if (callback_ref_enter == LUA_NOREF) {
+		return 0;
+	}
+	int callback_ref_exit = lua_signal_binding_ref_callback(p_L, 2);
+	if (callback_ref_exit == LUA_NOREF) {
+		luaL_unref(p_L, LUA_REGISTRYINDEX, callback_ref_enter);
+		return 0;
+	}
+
+	// 创建两个独立的 receiver，分别处理进入与离开信号
+	TriggerSignalReceiver *receiver_enter = memnew(TriggerSignalReceiver);
+	receiver_enter->setup(p_L, callback_ref_enter);
+
+	int32_t binding_enter = lua_signal_binding_create_with_ref(
+			p_L, area, "body_entered", receiver_enter,
+			godot::Callable(receiver_enter, "on_body_entered"),
+			callback_ref_enter, "trigger.body_entered");
+	if (binding_enter < 0) {
+		luaL_unref(p_L, LUA_REGISTRYINDEX, callback_ref_exit);
+		return 0;
+	}
+
+	TriggerSignalReceiver *receiver_exit = memnew(TriggerSignalReceiver);
+	receiver_exit->setup(p_L, callback_ref_exit);
+
+	int32_t binding_exit = lua_signal_binding_create_with_ref(
+			p_L, area, "body_exited", receiver_exit,
+			godot::Callable(receiver_exit, "on_body_exited"),
+			callback_ref_exit, "trigger.body_exited");
+	if (binding_exit < 0) {
+		// 失败时由 create_with_ref 释放 receiver_exit 与 callback_ref_exit
+		lua_signal_binding_disconnect(p_L, binding_enter);
+		return 0;
+	}
+
+	return 0;
+}
+
+// set_trigger_size(area_id, size_x, size_y, size_z) -> void
+// 设置 Area3D 所有直接子节点中 CollisionShape3D 的缩放，间接控制触发区域大小。
+// 仅遍历一层直接子节点，不递归。
+static int l_set_trigger_size(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 4) {
+		godot::UtilityFunctions::printerr("native_collision.set_trigger_size: expected 4 args (area_id, size_x, size_y, size_z), got ", argc);
+		return 0;
+	}
+
+	godot::ObjectID area_id = _read_node_id(p_L, 1);
+	godot::Vector3 scale(
+			(float)luaL_checknumber(p_L, 2),
+			(float)luaL_checknumber(p_L, 3),
+			(float)luaL_checknumber(p_L, 4));
+
+	godot::Node3D *node = _resolve_node(area_id, "set_trigger_size");
+	if (!node) {
+		return 0;
+	}
+
+	godot::Area3D *area = godot::Object::cast_to<godot::Area3D>(node);
+	if (!area) {
+		godot::UtilityFunctions::printerr("native_collision.set_trigger_size: node is not an Area3D, id ", area_id);
+		return 0;
+	}
+
+	int count = 0;
+	for (int i = 0; i < area->get_child_count(); i++) {
+		godot::CollisionShape3D *collision_shape = godot::Object::cast_to<godot::CollisionShape3D>(area->get_child(i));
+		if (collision_shape == nullptr) {
+			continue;
+		}
+
+		collision_shape->set_scale(scale);
+		count++;
+	}
+
+	if (count == 0) {
+		godot::UtilityFunctions::printerr("native_collision.set_trigger_size: no CollisionShape3D child found, id ", area_id);
+	}
+
+	return 0;
+}
+
 static const luaL_Reg collision_funcs[] = {
 	{"get_aabb", l_get_aabb},
 	{"intersect_hitbox", l_intersect_hitbox},
 	{"set_hitbox_active", l_set_hitbox_active},
 	{"intersect_cylinder", l_intersect_cylinder},
 	{"intersect_box", l_intersect_box},
+	{"set_trigger_callback", l_set_trigger_callback},
+	{"set_trigger_size", l_set_trigger_size},
 	{nullptr, nullptr}
 };
 
@@ -606,6 +783,10 @@ void collision_cleanup() {
 	cached_cylinder_shape.unref();
 	cached_box_shape.unref();
 	cached_query_params.unref();
+}
+
+void collision_register_signal_receivers() {
+	GDREGISTER_CLASS(TriggerSignalReceiver);
 }
 
 } // namespace luagd

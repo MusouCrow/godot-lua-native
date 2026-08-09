@@ -8,6 +8,7 @@
 
 #include "lua_host.h"
 #include "../lua/lua_runtime.h"
+#include "../modules/collision_module.h"
 
 using namespace godot;
 
@@ -20,6 +21,9 @@ void initialize_luagd_module(ModuleInitializationLevel p_level) {
 
 	// 初始化 Lua 运行时
 	luagd::LuaRuntime::initialize();
+
+	// 注册信号接收器类型
+	luagd::collision_register_signal_receivers();
 
 	// 注册 LuaHost 类
 	GDREGISTER_CLASS(luagd::LuaHost);

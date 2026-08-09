@@ -1,4 +1,5 @@
 #include "lua_runtime.h"
+#include "lua_signal_binding.h"
 
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -128,6 +129,7 @@ void LuaRuntime::shutdown() {
 	anim_cleanup();
 	ai_cleanup();
 	node_cleanup();
+	lua_signal_binding_cleanup(state);
 	if (state != nullptr) {
 		lua_close(state);
 		state = nullptr;
