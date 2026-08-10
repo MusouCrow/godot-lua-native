@@ -14,6 +14,24 @@ local M = {}
 ---@return boolean success 是否至少有一个子节点应用成功
 function M.set_param_color(id, param_name, r, g, b, a) end
 
+--- native_material.set_param_vec3(id, param_name, x, y, z) -> boolean
+--- 在节点的直接子节点中设置实例着色器Vector3参数。
+---@param id integer 节点句柄
+---@param param_name string 实例着色器参数名
+---@param x number X分量
+---@param y number Y分量
+---@param z number Z分量
+---@return boolean success 是否至少有一个子节点应用成功
+function M.set_param_vec3(id, param_name, x, y, z) end
+
+--- native_material.set_param_float(id, param_name, value) -> boolean
+--- 在节点的直接子节点中设置实例着色器float参数。
+---@param id integer 节点句柄
+---@param param_name string 实例着色器参数名
+---@param value number 参数值
+---@return boolean success 是否至少有一个子节点应用成功
+function M.set_param_float(id, param_name, value) end
+
 --- native_material.set_material_override(node_id, material_path) -> integer
 --- 设置节点自身及其直接子节点的 material_override 属性。
 --- material_path 使用资源路径，如 "res://materials/mat_afterimage.tres"
@@ -21,6 +39,14 @@ function M.set_param_color(id, param_name, r, g, b, a) end
 ---@param material_path string 材质资源路径
 ---@return integer count 设置成功的 GeometryInstance3D 节点数量
 function M.set_material_override(node_id, material_path) end
+
+--- native_material.set_material_overlay(node_id, material_path) -> integer
+--- 设置节点自身及其直接子节点的 material_overlay 属性。
+--- material_path 为 nil 时清空 overlay。
+---@param node_id integer 节点句柄
+---@param material_path string|nil 材质资源路径，nil表示清空overlay
+---@return integer count 设置成功的 GeometryInstance3D 节点数量
+function M.set_material_overlay(node_id, material_path) end
 
 --- native_material.set_transparency(node_id, transparency) -> integer
 --- 设置节点自身及其直接子节点的 transparency 属性（0.0=不透明，1.0=完全透明）。
