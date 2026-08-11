@@ -76,10 +76,36 @@ static int l_quit(lua_State *p_L) {
 	return 0;
 }
 
+// native_core.set_time_scale(scale) -> void
+// 设置游戏时间缩放比例。
+// scale: 时间缩放倍率，1.0 为正常速度，2.0 为两倍速，0.5 为半速。
+static int l_set_time_scale(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 1) {
+		godot::UtilityFunctions::printerr("native_core.set_time_scale: expected 1 argument (number), got ", argc);
+		return 0;
+	}
+
+	double scale = luaL_checknumber(p_L, 1);
+	godot::Engine::get_singleton()->set_time_scale(scale);
+
+	return 0;
+}
+
+// native_core.get_time_scale() -> number
+// 获取当前游戏时间缩放比例。
+static int l_get_time_scale(lua_State *p_L) {
+	double scale = godot::Engine::get_singleton()->get_time_scale();
+	lua_pushnumber(p_L, scale);
+	return 1;
+}
+
 static const luaL_Reg core_funcs[] = {
 	{"bind_update", l_bind_update},
 	{"bind_shutdown", l_bind_shutdown},
 	{"quit", l_quit},
+	{"set_time_scale", l_set_time_scale},
+	{"get_time_scale", l_get_time_scale},
 	{nullptr, nullptr}
 };
 

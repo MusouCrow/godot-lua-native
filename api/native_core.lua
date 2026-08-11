@@ -23,4 +23,16 @@ function M.bind_shutdown(func) end
 ---@return nil 退出请求可能被宿主延后处理
 function M.quit(exit_code) end
 
+--- native_core.set_time_scale(scale) -> void
+--- 设置游戏时间缩放比例。
+--- 影响所有使用 delta 时间的模拟（如 Timer、动画、物理等）。
+---@param scale number 时间缩放倍率，1.0 为正常速度，2.0 为两倍速，0.5 为半速
+---@return nil
+function M.set_time_scale(scale) end
+
+--- native_core.get_time_scale() -> number
+--- 获取当前游戏时间缩放比例。
+---@return number 当前时间缩放倍率
+function M.get_time_scale() end
+
 return M
