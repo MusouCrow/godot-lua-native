@@ -97,7 +97,8 @@ function M.set_blend2d_point(animator_id, layer_name, anim_name, x, y, speed) en
 function M.play_blend2d(animator_id, layer_name, fade_time) end
 
 --- native_anim.set_blend2d_params(animator_id, layer_name, x, y) -> bool
---- 更新指定 Layer 的 Blend2D 输入参数。
+--- 更新指定 Layer 当前 active Blend2D 的输入参数。
+--- Transition 期间不会修改正在淡出的旧 Blend2D。
 ---@param animator_id integer Animator id
 ---@param layer_name string Layer 名称
 ---@param x number Blend2D X 输入

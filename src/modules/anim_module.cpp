@@ -1027,8 +1027,9 @@ static int l_set_blend2d_params(lua_State *p_L) {
 	}
 	layer->blend2d_x = x;
 	layer->blend2d_y = y;
-	_set_slot_blend_position_runtime(animator, layer, &layer->slot_a);
-	_set_slot_blend_position_runtime(animator, layer, &layer->slot_b);
+
+	SlotRecord *active_slot = _get_active_slot(layer);
+	_set_slot_blend_position_runtime(animator, layer, active_slot);
 	_push_bool(p_L, true);
 	return 1;
 }
