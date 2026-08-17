@@ -87,24 +87,27 @@ function M.get_floor_normal(id) end
 
 --- native_physics.set_collision_layer(id, layer) -> void
 --- 设置 CollisionObject3D 的碰撞层（32位掩码）。
----@param id integer 节点句柄
+---@param id integer 节点句柄（节点本身不是 CollisionObject3D 时自动查找子节点）
 ---@param layer integer 碰撞层值（0-4294967295）
 function M.set_collision_layer(id, layer) end
 
 --- native_physics.get_collision_layer(id) -> integer
 --- 获取 CollisionObject3D 的碰撞层。
+--- 节点本身不是 CollisionObject3D 时自动查找子节点。
 ---@param id integer 节点句柄
 ---@return integer layer 碰撞层值，失败返回 0
 function M.get_collision_layer(id) end
 
 --- native_physics.set_collision_mask(id, mask) -> void
 --- 设置 CollisionObject3D 的碰撞掩码（32位掩码）。
+--- 节点本身不是 CollisionObject3D 时自动查找子节点。
 ---@param id integer 节点句柄
 ---@param mask integer 碰撞掩码值（0-4294967295）
 function M.set_collision_mask(id, mask) end
 
 --- native_physics.get_collision_mask(id) -> integer
 --- 获取 CollisionObject3D 的碰撞掩码。
+--- 节点本身不是 CollisionObject3D 时自动查找子节点。
 ---@param id integer 节点句柄
 ---@return integer mask 碰撞掩码值，失败返回 0
 function M.get_collision_mask(id) end

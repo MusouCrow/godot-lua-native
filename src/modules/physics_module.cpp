@@ -57,13 +57,26 @@ static godot::CollisionObject3D *_resolve_collision_object(godot::ObjectID p_nod
 		return nullptr;
 	}
 
+	// 节点本身就是 CollisionObject3D
 	godot::CollisionObject3D *collision_object = godot::Object::cast_to<godot::CollisionObject3D>(node);
-	if (collision_object == nullptr) {
-		godot::UtilityFunctions::printerr("native_physics.", p_func_name, ": node is not CollisionObject3D, id ", p_node_id);
-		return nullptr;
+	if (collision_object != nullptr) {
+		return collision_object;
 	}
 
-	return collision_object;
+	// 查找直接子节点中的 CollisionObject3D（支持 StaticBody3D 等作为子节点的场景）
+	for (int i = 0; i < node->get_child_count(); i++) {
+		godot::Node *child = node->get_child(i);
+		godot::CollisionObject3D *child_collision = godot::Object::cast_to<godot::CollisionObject3D>(child);
+		if (child_collision != nullptr) {
+			return child_collision;
+		}
+	}
+
+	// 节点及其子节点都不是 CollisionObject3D
+	godot::UtilityFunctions::printerr(
+		"native_physics.", p_func_name,
+		": node is not CollisionObject3D and no CollisionObject3D child found, id ", p_node_id);
+	return nullptr;
 }
 
 static godot::PhysicsBody3D *_resolve_physics_body(godot::ObjectID p_node_id, const char *p_func_name) {
