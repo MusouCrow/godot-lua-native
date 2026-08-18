@@ -4,6 +4,7 @@
 
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/material.hpp>
+#include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/core/object.hpp>
@@ -48,6 +49,35 @@ static int _apply_to_self_and_children(godot::Node *p_root, Func p_func) {
 	}
 
 	return count;
+}
+
+// 复制 MeshInstance3D 的 material_override 及所有 surface_override_material。
+// 浅复制即可，避免材质复用导致动画驱动产生问题。
+static void _duplicate_mesh_materials(godot::MeshInstance3D *p_mesh) {
+	if (p_mesh == nullptr) {
+		return;
+	}
+
+	godot::Ref<godot::Material> material_override = p_mesh->get_material_override();
+	if (!material_override.is_null()) {
+		godot::Ref<godot::Material> duplicated = material_override->duplicate(false);
+		if (!duplicated.is_null()) {
+			p_mesh->set_material_override(duplicated);
+		}
+	}
+
+	const int32_t surface_count = p_mesh->get_surface_override_material_count();
+	for (int32_t i = 0; i < surface_count; ++i) {
+		godot::Ref<godot::Material> surface_material = p_mesh->get_surface_override_material(i);
+		if (surface_material.is_null()) {
+			continue;
+		}
+
+		godot::Ref<godot::Material> duplicated = surface_material->duplicate(false);
+		if (!duplicated.is_null()) {
+			p_mesh->set_surface_override_material(i, duplicated);
+		}
+	}
 }
 
 // 对节点的直接子节点设置实例着色器参数的通用模板函数
@@ -358,6 +388,56 @@ static int l_enable_cast_shadow(lua_State *p_L) {
 	return 1;
 }
 
+// duplicate_materials(node_id) -> count
+// 复制节点自身及其直接子节点（MeshInstance3D）的材质。
+// 复制 material_override 与所有 surface_override_material，避免材质复用导致动画驱动产生问题。
+static int l_duplicate_materials(lua_State *p_L) {
+	const godot::ObjectID node_id = _read_node_id(p_L, 1);
+
+	if (node_id.is_null()) {
+		godot::UtilityFunctions::printerr("native_material.duplicate_materials: node id is 0");
+		lua_pushinteger(p_L, 0);
+		return 1;
+	}
+
+	godot::Node3D *root_node_3d = node_resolve(node_id);
+	if (root_node_3d == nullptr) {
+		godot::UtilityFunctions::printerr("native_material.duplicate_materials: node is no longer valid, id ", node_id);
+		lua_pushinteger(p_L, 0);
+		return 1;
+	}
+
+	godot::Node *root_node = godot::Object::cast_to<godot::Node>(root_node_3d);
+	if (root_node == nullptr) {
+		lua_pushinteger(p_L, 0);
+		return 1;
+	}
+
+	int count = 0;
+
+	godot::MeshInstance3D *self_mesh = godot::Object::cast_to<godot::MeshInstance3D>(root_node);
+	if (self_mesh != nullptr) {
+		_duplicate_mesh_materials(self_mesh);
+		count++;
+	}
+
+	for (int64_t i = 0; i < root_node->get_child_count(); ++i) {
+		godot::Node *child = root_node->get_child(i);
+		if (child == nullptr) {
+			continue;
+		}
+
+		godot::MeshInstance3D *child_mesh = godot::Object::cast_to<godot::MeshInstance3D>(child);
+		if (child_mesh != nullptr) {
+			_duplicate_mesh_materials(child_mesh);
+			count++;
+		}
+	}
+
+	lua_pushinteger(p_L, count);
+	return 1;
+}
+
 static const luaL_Reg material_funcs[] = {
 	{"set_param_color", l_set_param_color},
 	{"set_param_vec3", l_set_param_vec3},
@@ -366,6 +446,7 @@ static const luaL_Reg material_funcs[] = {
 	{"set_material_overlay", l_set_material_overlay},
 	{"set_transparency", l_set_transparency},
 	{"enable_cast_shadow", l_enable_cast_shadow},
+	{"duplicate_materials", l_duplicate_materials},
 	{nullptr, nullptr}
 };
 

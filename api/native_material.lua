@@ -62,4 +62,11 @@ function M.set_transparency(node_id, transparency) end
 ---@return integer count 设置成功的 GeometryInstance3D 节点数量
 function M.enable_cast_shadow(node_id, enabled) end
 
+--- native_material.duplicate_materials(node_id) -> integer
+--- 复制节点自身及其直接子节点（MeshInstance3D）的 material_override 与所有 surface_override_material。
+--- 浅复制材质，避免材质复用导致动画驱动产生问题。
+---@param node_id integer 节点句柄
+---@return integer count 处理的 MeshInstance3D 节点数量
+function M.duplicate_materials(node_id) end
+
 return M

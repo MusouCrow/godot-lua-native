@@ -5,6 +5,7 @@ local M = {}
 
 --- native_collision.get_aabb(id) -> number, number, number, number, number, number
 --- 获取主碰撞体在节点自身坐标系下的 AABB。
+--- 节点本身不是碰撞体（CollisionShape3D/CollisionObject3D）时，自动查找直接子节点。
 ---@param id integer 节点句柄
 ---@return number pos_x
 ---@return number pos_y

@@ -188,8 +188,23 @@ static bool _try_get_collision_object_aabb(godot::CollisionObject3D *p_collision
 	return found;
 }
 
+// 尝试从单个节点解析出碰撞体 AABB，返回是否成功。
+// 优先当作 CollisionShape3D，其次当作 CollisionObject3D。
+static bool _try_get_node_aabb(godot::Node3D *p_node, godot::AABB *r_aabb) {
+	if (p_node == nullptr || r_aabb == nullptr) {
+		return false;
+	}
+
+	if (_try_get_collision_shape_aabb(godot::Object::cast_to<godot::CollisionShape3D>(p_node), r_aabb)) {
+		return true;
+	}
+
+	return _try_get_collision_object_aabb(godot::Object::cast_to<godot::CollisionObject3D>(p_node), r_aabb);
+}
+
 // get_aabb(node_id) -> pos_x, pos_y, pos_z, size_x, size_y, size_z
 // 获取主碰撞体在节点自身坐标系下的 AABB。
+// 节点本身不是碰撞体时，自动查找直接子节点中的碰撞体。
 static int l_get_aabb(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	godot::Node3D *node = _resolve_node(node_id, "get_aabb");
@@ -198,12 +213,20 @@ static int l_get_aabb(lua_State *p_L) {
 	}
 
 	godot::AABB aabb;
-	if (_try_get_collision_shape_aabb(godot::Object::cast_to<godot::CollisionShape3D>(node), &aabb)) {
+	if (_try_get_node_aabb(node, &aabb)) {
 		return _push_aabb(p_L, aabb);
 	}
 
-	if (_try_get_collision_object_aabb(godot::Object::cast_to<godot::CollisionObject3D>(node), &aabb)) {
-		return _push_aabb(p_L, aabb);
+	// 节点本身不是碰撞体，遍历直接子节点查找
+	for (int i = 0; i < node->get_child_count(); i++) {
+		godot::Node3D *child = godot::Object::cast_to<godot::Node3D>(node->get_child(i));
+		if (child == nullptr) {
+			continue;
+		}
+
+		if (_try_get_node_aabb(child, &aabb)) {
+			return _push_aabb(p_L, aabb);
+		}
 	}
 
 	return _push_zero_aabb(p_L);
