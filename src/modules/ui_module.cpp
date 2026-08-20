@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/control.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/range.hpp>
+#include <godot_cpp/classes/rich_text_label.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/object_id.hpp>
 #include <godot_cpp/variant/color.hpp>
@@ -78,6 +79,23 @@ static godot::Range *_resolve_range(godot::ObjectID p_id, const char *p_func_nam
 	}
 
 	return range;
+}
+
+// 解析 RichTextLabel 节点。
+// 返回：节点对象；句柄为空、对象不存在或类型不符时返回 nullptr。
+static godot::RichTextLabel *_resolve_rich_text_label(godot::ObjectID p_id, const char *p_func_name) {
+	godot::Control *control = _resolve_control(p_id, p_func_name);
+	if (control == nullptr) {
+		return nullptr;
+	}
+
+	godot::RichTextLabel *rich_text_label = godot::Object::cast_to<godot::RichTextLabel>(control);
+	if (rich_text_label == nullptr) {
+		godot::UtilityFunctions::printerr("native_ui.", p_func_name, ": object is not a RichTextLabel, handle=", (uint64_t)p_id);
+		return nullptr;
+	}
+
+	return rich_text_label;
 }
 
 // get_visible(handle) -> bool
@@ -200,6 +218,44 @@ static int l_get_size(lua_State *p_L) {
 	return 2;
 }
 
+// get_text(handle) -> string
+// 获取 RichTextLabel 的文本内容。
+// 返回：节点无效时返回空字符串。
+static int l_get_text(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+
+	godot::RichTextLabel *rich_text_label = _resolve_rich_text_label(id, "get_text");
+	if (rich_text_label == nullptr) {
+		lua_pushstring(p_L, "");
+		return 1;
+	}
+
+	const godot::String text = rich_text_label->get_text();
+	lua_pushstring(p_L, text.utf8().get_data());
+	return 1;
+}
+
+// set_text(handle, text) -> void
+// 设置 RichTextLabel 的文本内容。
+static int l_set_text(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 2) {
+		godot::UtilityFunctions::printerr("native_ui.set_text: expected 2 args (handle, text), got ", argc);
+		return 0;
+	}
+
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const char *text = luaL_checkstring(p_L, 2);
+
+	godot::RichTextLabel *rich_text_label = _resolve_rich_text_label(id, "set_text");
+	if (rich_text_label == nullptr) {
+		return 0;
+	}
+
+	rich_text_label->set_text(godot::String::utf8(text));
+	return 0;
+}
+
 static const luaL_Reg ui_funcs[] = {
 	{"get_visible", l_get_visible},
 	{"set_visible", l_set_visible},
@@ -207,6 +263,8 @@ static const luaL_Reg ui_funcs[] = {
 	{"get_bar_value", l_get_bar_value},
 	{"set_bar_value", l_set_bar_value},
 	{"get_size", l_get_size},
+	{"get_text", l_get_text},
+	{"set_text", l_set_text},
 	{nullptr, nullptr}
 };
 

@@ -57,4 +57,20 @@ function M.get_bar_value(handle) end
 ---@param value number 目标值
 function M.set_bar_value(handle, value) end
 
+-- ============================================================================
+-- RichTextLabel
+-- ============================================================================
+
+--- native_ui.get_text(handle) -> string
+--- 获取 RichTextLabel 的文本内容。
+---@param handle integer native_node 节点句柄
+---@return string text 文本内容；节点无效时返回空字符串
+function M.get_text(handle) end
+
+--- native_ui.set_text(handle, text) -> void
+--- 设置 RichTextLabel 的文本内容。
+---@param handle integer native_node 节点句柄
+---@param text string 文本内容（支持 BBCode）
+function M.set_text(handle, text) end
+
 return M
