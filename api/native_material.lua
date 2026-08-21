@@ -32,6 +32,29 @@ function M.set_param_vec3(id, param_name, x, y, z) end
 ---@return boolean success 是否至少有一个子节点应用成功
 function M.set_param_float(id, param_name, value) end
 
+--- native_material.set_global_param_float(param_name, value) -> nil
+--- 设置全局着色器float参数（基于RenderingServer.global_shader_parameter_set）。
+---@param param_name string 全局着色器参数名
+---@param value number 参数值
+function M.set_global_param_float(param_name, value) end
+
+--- native_material.set_global_param_vec3(param_name, x, y, z) -> nil
+--- 设置全局着色器Vector3参数（基于RenderingServer.global_shader_parameter_set）。
+---@param param_name string 全局着色器参数名
+---@param x number X分量
+---@param y number Y分量
+---@param z number Z分量
+function M.set_global_param_vec3(param_name, x, y, z) end
+
+--- native_material.set_global_param_color(param_name, r, g, b, a) -> nil
+--- 设置全局着色器颜色参数（基于RenderingServer.global_shader_parameter_set）。
+---@param param_name string 全局着色器参数名
+---@param r number 红色分量
+---@param g number 绿色分量
+---@param b number 蓝色分量
+---@param a number alpha 分量
+function M.set_global_param_color(param_name, r, g, b, a) end
+
 --- native_material.set_material_override(node_id, material_path) -> integer
 --- 设置节点自身及其直接子节点的 material_override 属性。
 --- material_path 使用资源路径，如 "res://materials/mat_afterimage.tres"

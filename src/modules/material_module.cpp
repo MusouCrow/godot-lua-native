@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/object_id.hpp>
@@ -438,10 +439,53 @@ static int l_duplicate_materials(lua_State *p_L) {
 	return 1;
 }
 
+// set_global_param_float(param_name, value) -> nil
+// 设置全局着色器float参数（基于RenderingServer.global_shader_parameter_set）。
+static int l_set_global_param_float(lua_State *p_L) {
+	const char *param_name = luaL_checkstring(p_L, 1);
+	const double value = luaL_checknumber(p_L, 2);
+
+	const godot::StringName param_name_sn(param_name);
+	godot::RenderingServer::get_singleton()->global_shader_parameter_set(param_name_sn, (float)value);
+	return 0;
+}
+
+// set_global_param_vec3(param_name, x, y, z) -> nil
+// 设置全局着色器Vector3参数（基于RenderingServer.global_shader_parameter_set）。
+static int l_set_global_param_vec3(lua_State *p_L) {
+	const char *param_name = luaL_checkstring(p_L, 1);
+	const double x = luaL_checknumber(p_L, 2);
+	const double y = luaL_checknumber(p_L, 3);
+	const double z = luaL_checknumber(p_L, 4);
+
+	const godot::StringName param_name_sn(param_name);
+	const godot::Vector3 vec3((float)x, (float)y, (float)z);
+	godot::RenderingServer::get_singleton()->global_shader_parameter_set(param_name_sn, vec3);
+	return 0;
+}
+
+// set_global_param_color(param_name, r, g, b, a) -> nil
+// 设置全局着色器颜色参数（基于RenderingServer.global_shader_parameter_set）。
+static int l_set_global_param_color(lua_State *p_L) {
+	const char *param_name = luaL_checkstring(p_L, 1);
+	const double r = luaL_checknumber(p_L, 2);
+	const double g = luaL_checknumber(p_L, 3);
+	const double b = luaL_checknumber(p_L, 4);
+	const double a = luaL_checknumber(p_L, 5);
+
+	const godot::StringName param_name_sn(param_name);
+	const godot::Color color((float)r, (float)g, (float)b, (float)a);
+	godot::RenderingServer::get_singleton()->global_shader_parameter_set(param_name_sn, color);
+	return 0;
+}
+
 static const luaL_Reg material_funcs[] = {
 	{"set_param_color", l_set_param_color},
 	{"set_param_vec3", l_set_param_vec3},
 	{"set_param_float", l_set_param_float},
+	{"set_global_param_float", l_set_global_param_float},
+	{"set_global_param_vec3", l_set_global_param_vec3},
+	{"set_global_param_color", l_set_global_param_color},
 	{"set_material_override", l_set_material_override},
 	{"set_material_overlay", l_set_material_overlay},
 	{"set_transparency", l_set_transparency},
