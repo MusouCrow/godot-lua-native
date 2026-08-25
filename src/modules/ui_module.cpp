@@ -6,7 +6,10 @@
 #include <godot_cpp/classes/control.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/range.hpp>
+#include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/rich_text_label.hpp>
+#include <godot_cpp/classes/texture2d.hpp>
+#include <godot_cpp/classes/texture_rect.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/object_id.hpp>
 #include <godot_cpp/variant/color.hpp>
@@ -79,6 +82,23 @@ static godot::Range *_resolve_range(godot::ObjectID p_id, const char *p_func_nam
 	}
 
 	return range;
+}
+
+// 解析 TextureRect 节点。
+// 返回：节点对象；句柄为空、对象不存在或类型不符时返回 nullptr。
+static godot::TextureRect *_resolve_texture_rect(godot::ObjectID p_id, const char *p_func_name) {
+	godot::Control *control = _resolve_control(p_id, p_func_name);
+	if (control == nullptr) {
+		return nullptr;
+	}
+
+	godot::TextureRect *texture_rect = godot::Object::cast_to<godot::TextureRect>(control);
+	if (texture_rect == nullptr) {
+		godot::UtilityFunctions::printerr("native_ui.", p_func_name, ": object is not a TextureRect, handle=", (uint64_t)p_id);
+		return nullptr;
+	}
+
+	return texture_rect;
 }
 
 // 解析 RichTextLabel 节点。
@@ -256,6 +276,46 @@ static int l_set_text(lua_State *p_L) {
 	return 0;
 }
 
+// set_texture(handle, texture_path) -> bool
+// 设置 TextureRect 的纹理。
+// texture_path: 纹理资源路径。
+// 返回：节点无效或加载纹理失败时返回 false。
+static int l_set_texture(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 2) {
+		godot::UtilityFunctions::printerr("native_ui.set_texture: expected 2 args (handle, texture_path), got ", argc);
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const char *texture_path = luaL_checkstring(p_L, 2);
+
+	godot::TextureRect *texture_rect = _resolve_texture_rect(id, "set_texture");
+	if (texture_rect == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Ref<godot::Resource> resource = godot::ResourceLoader::get_singleton()->load(godot::String(texture_path));
+	if (resource.is_null()) {
+		godot::UtilityFunctions::printerr("native_ui.set_texture: failed to load texture: ", texture_path);
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Ref<godot::Texture2D> texture = resource;
+	if (texture.is_null()) {
+		godot::UtilityFunctions::printerr("native_ui.set_texture: resource is not a Texture2D: ", texture_path);
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	texture_rect->set_texture(texture);
+	lua_pushboolean(p_L, true);
+	return 1;
+}
+
 static const luaL_Reg ui_funcs[] = {
 	{"get_visible", l_get_visible},
 	{"set_visible", l_set_visible},
@@ -265,6 +325,7 @@ static const luaL_Reg ui_funcs[] = {
 	{"get_size", l_get_size},
 	{"get_text", l_get_text},
 	{"set_text", l_set_text},
+	{"set_texture", l_set_texture},
 	{nullptr, nullptr}
 };
 

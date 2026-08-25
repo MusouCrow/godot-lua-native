@@ -73,4 +73,15 @@ function M.get_text(handle) end
 ---@param text string 文本内容（支持 BBCode）
 function M.set_text(handle, text) end
 
+-- ============================================================================
+-- TextureRect
+-- ============================================================================
+
+--- native_ui.set_texture(handle, texture_path) -> boolean
+--- 设置 TextureRect 的纹理。
+---@param handle integer native_node 节点句柄
+---@param texture_path string 纹理资源路径
+---@return boolean ok 是否设置成功；节点无效或纹理加载失败时返回 false
+function M.set_texture(handle, texture_path) end
+
 return M
