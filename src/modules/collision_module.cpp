@@ -10,6 +10,7 @@
 #include <godot_cpp/classes/collision_shape3d.hpp>
 #include <godot_cpp/classes/cylinder_shape3d.hpp>
 #include <godot_cpp/classes/physics_direct_space_state3d.hpp>
+#include <godot_cpp/classes/physics_ray_query_parameters3d.hpp>
 #include <godot_cpp/classes/physics_shape_query_parameters3d.hpp>
 #include <godot_cpp/classes/shape3d.hpp>
 #include <godot_cpp/classes/world3d.hpp>
@@ -36,6 +37,7 @@ namespace luagd {
 static godot::Ref<godot::CylinderShape3D> cached_cylinder_shape;
 static godot::Ref<godot::BoxShape3D> cached_box_shape;
 static godot::Ref<godot::PhysicsShapeQueryParameters3D> cached_query_params;
+static godot::Ref<godot::PhysicsRayQueryParameters3D> cached_ray_params;
 
 // TriggerSignalReceiver：接收 Area3D 的 body_entered / body_exited 信号。
 // 两个信号各持有一个实例，通过 instance_id + is_enter 调用 Lua 回调。
@@ -546,6 +548,84 @@ static int l_intersect_box(lua_State *p_L) {
 	return 0;
 }
 
+// intersect_ray(ref_node_id, from_x, from_y, from_z,
+//               to_x, to_y, to_z, collision_mask)
+//   -> collider_id, pos_x, pos_y, pos_z, normal_x, normal_y, normal_z
+// 从 from 到 to 发射射线，返回最近命中；未命中返回 nil。
+// ref_node_id 仅用于获取所在 world。
+static int l_intersect_ray(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 8) {
+		godot::UtilityFunctions::printerr("native_collision.intersect_ray: expected 8 args, got ", argc);
+		lua_pushnil(p_L);
+		return 1;
+	}
+
+	godot::ObjectID node_id = _read_node_id(p_L, 1);
+
+	godot::Vector3 from(
+			(float)luaL_checknumber(p_L, 2),
+			(float)luaL_checknumber(p_L, 3),
+			(float)luaL_checknumber(p_L, 4));
+	godot::Vector3 to(
+			(float)luaL_checknumber(p_L, 5),
+			(float)luaL_checknumber(p_L, 6),
+			(float)luaL_checknumber(p_L, 7));
+	uint32_t collision_mask = (uint32_t)luaL_checkinteger(p_L, 8);
+
+	if (collision_mask == 0) {
+		collision_mask = 0xFFFFFFFF;
+	}
+
+	godot::Node3D *node = _resolve_node(node_id, "intersect_ray");
+	if (!node) {
+		lua_pushnil(p_L);
+		return 1;
+	}
+
+	if (cached_ray_params.is_null()) {
+		cached_ray_params.instantiate();
+	}
+
+	godot::Ref<godot::World3D> world = node->get_world_3d();
+	if (world.is_null()) {
+		godot::UtilityFunctions::printerr("native_collision.intersect_ray: reference node not in world");
+		lua_pushnil(p_L);
+		return 1;
+	}
+
+	godot::PhysicsDirectSpaceState3D *space_state = world->get_direct_space_state();
+	if (!space_state) {
+		godot::UtilityFunctions::printerr("native_collision.intersect_ray: failed to get space state");
+		lua_pushnil(p_L);
+		return 1;
+	}
+
+	cached_ray_params->set_from(from);
+	cached_ray_params->set_to(to);
+	cached_ray_params->set_collision_mask(collision_mask);
+
+	godot::Dictionary result = space_state->intersect_ray(cached_ray_params);
+
+	if (result.is_empty()) {
+		lua_pushnil(p_L);
+		return 1;
+	}
+
+	uint64_t collider_id = (uint64_t)result["collider_id"];
+	godot::Vector3 position = result["position"];
+	godot::Vector3 normal = result["normal"];
+
+	lua_pushinteger(p_L, collider_id);
+	lua_pushnumber(p_L, position.x);
+	lua_pushnumber(p_L, position.y);
+	lua_pushnumber(p_L, position.z);
+	lua_pushnumber(p_L, normal.x);
+	lua_pushnumber(p_L, normal.y);
+	lua_pushnumber(p_L, normal.z);
+	return 7;
+}
+
 // intersect_hitbox(node_id, collision_mask, callback) -> void
 // 对指定节点或其子节点中的AttackHitbox3D执行碰撞检测
 // 如果node_id本身是AttackHitbox3D，直接处理
@@ -791,6 +871,7 @@ static const luaL_Reg collision_funcs[] = {
 	{"set_hitbox_active", l_set_hitbox_active},
 	{"intersect_cylinder", l_intersect_cylinder},
 	{"intersect_box", l_intersect_box},
+	{"intersect_ray", l_intersect_ray},
 	{"set_trigger_callback", l_set_trigger_callback},
 	{"set_trigger_size", l_set_trigger_size},
 	{nullptr, nullptr}
@@ -806,6 +887,7 @@ void collision_cleanup() {
 	cached_cylinder_shape.unref();
 	cached_box_shape.unref();
 	cached_query_params.unref();
+	cached_ray_params.unref();
 }
 
 void collision_register_signal_receivers() {

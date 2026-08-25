@@ -64,6 +64,26 @@ function M.intersect_cylinder(ref_node_id, pos_x, pos_y, pos_z, forward_x, forwa
 ---@param callback fun(target_id: integer): boolean 回调函数，返回 false 终止迭代
 function M.intersect_box(ref_node_id, pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, size_x, size_y, size_z, collision_mask, callback) end
 
+--- native_collision.intersect_ray(ref_node_id, from_x, from_y, from_z, to_x, to_y, to_z, collision_mask) -> collider_id, pos_x, pos_y, pos_z, normal_x, normal_y, normal_z
+--- 从 from 到 to 发射射线，返回最近命中；未命中返回 nil。
+--- 通过参考节点获取物理世界。
+---@param ref_node_id integer 参考节点的 ObjectID（用于获取 World3D）
+---@param from_x number 射线起点 X
+---@param from_y number 射线起点 Y
+---@param from_z number 射线起点 Z
+---@param to_x number 射线终点 X
+---@param to_y number 射线终点 Y
+---@param to_z number 射线终点 Z
+---@param collision_mask integer 碰撞层掩码，0 表示检测所有层
+---@return integer? collider_id 命中的碰撞体 ObjectID
+---@return number? pos_x 命中点 X
+---@return number? pos_y 命中点 Y
+---@return number? pos_z 命中点 Z
+---@return number? normal_x 命中点法线 X
+---@return number? normal_y 命中点法线 Y
+---@return number? normal_z 命中点法线 Z
+function M.intersect_ray(ref_node_id, from_x, from_y, from_z, to_x, to_y, to_z, collision_mask) end
+
 --- native_collision.set_hitbox_active(node_id, active) -> void
 --- 设置指定节点或其子节点中的 AttackHitbox3D 的 active 状态。
 --- 如果 node_id 本身是 AttackHitbox3D，直接设置；
