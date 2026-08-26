@@ -10,6 +10,7 @@
 #include <godot_cpp/classes/rich_text_label.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/classes/texture_rect.hpp>
+#include <godot_cpp/classes/theme.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/object_id.hpp>
 #include <godot_cpp/variant/color.hpp>
@@ -316,6 +317,46 @@ static int l_set_texture(lua_State *p_L) {
 	return 1;
 }
 
+// set_theme(handle, theme_path) -> bool
+// 设置 Control 节点的主题。
+// theme_path: 主题资源路径。
+// 返回：节点无效或加载主题失败时返回 false。
+static int l_set_theme(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 2) {
+		godot::UtilityFunctions::printerr("native_ui.set_theme: expected 2 args (handle, theme_path), got ", argc);
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const char *theme_path = luaL_checkstring(p_L, 2);
+
+	godot::Control *control = _resolve_control(id, "set_theme");
+	if (control == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Ref<godot::Resource> resource = godot::ResourceLoader::get_singleton()->load(godot::String(theme_path));
+	if (resource.is_null()) {
+		godot::UtilityFunctions::printerr("native_ui.set_theme: failed to load theme: ", theme_path);
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Ref<godot::Theme> theme = resource;
+	if (theme.is_null()) {
+		godot::UtilityFunctions::printerr("native_ui.set_theme: resource is not a Theme: ", theme_path);
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	control->set_theme(theme);
+	lua_pushboolean(p_L, true);
+	return 1;
+}
+
 static const luaL_Reg ui_funcs[] = {
 	{"get_visible", l_get_visible},
 	{"set_visible", l_set_visible},
@@ -326,6 +367,7 @@ static const luaL_Reg ui_funcs[] = {
 	{"get_text", l_get_text},
 	{"set_text", l_set_text},
 	{"set_texture", l_set_texture},
+	{"set_theme", l_set_theme},
 	{nullptr, nullptr}
 };
 

@@ -84,4 +84,15 @@ function M.set_text(handle, text) end
 ---@return boolean ok 是否设置成功；节点无效或纹理加载失败时返回 false
 function M.set_texture(handle, texture_path) end
 
+-- ============================================================================
+-- Control
+-- ============================================================================
+
+--- native_ui.set_theme(handle, theme_path) -> boolean
+--- 设置 Control 节点的主题。
+---@param handle integer native_node 节点句柄
+---@param theme_path string 主题资源路径
+---@return boolean ok 是否设置成功；节点无效或主题加载失败时返回 false
+function M.set_theme(handle, theme_path) end
+
 return M
