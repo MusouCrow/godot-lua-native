@@ -26,4 +26,16 @@ function M.unload(path) end
 ---@return boolean loaded 是否已加载
 function M.is_loaded(path) end
 
+--- native_res.get_texture_width(path) -> integer
+--- 获取纹理宽度（像素）。加载失败或非纹理资源时返回 0。
+---@param path string 资源路径
+---@return integer width 纹理宽度
+function M.get_texture_width(path) end
+
+--- native_res.get_texture_height(path) -> integer
+--- 获取纹理高度（像素）。加载失败或非纹理资源时返回 0。
+---@param path string 资源路径
+---@return integer height 纹理高度
+function M.get_texture_height(path) end
+
 return M
