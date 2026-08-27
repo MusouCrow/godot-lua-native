@@ -73,6 +73,13 @@ function M.get_text(handle) end
 ---@param text string 文本内容（支持 BBCode）
 function M.set_text(handle, text) end
 
+--- native_ui.get_font_size(handle) -> integer
+--- 获取 RichTextLabel 的字体大小（normal_font_size）。
+--- 优先返回 theme_override_font_sizes/normal_font_size 的本地覆盖，否则回退主题树。
+---@param handle integer native_node 节点句柄
+---@return integer font_size 字体大小；节点无效时返回 -1
+function M.get_font_size(handle) end
+
 -- ============================================================================
 -- TextureRect
 -- ============================================================================

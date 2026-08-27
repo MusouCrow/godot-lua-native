@@ -277,6 +277,24 @@ static int l_set_text(lua_State *p_L) {
 	return 0;
 }
 
+// get_font_size(handle) -> number
+// 获取 RichTextLabel 的字体大小（normal_font_size）。
+// 优先返回 theme_override_font_sizes/normal_font_size 的本地覆盖，否则回退主题树。
+// 返回：节点无效时返回 -1。
+static int l_get_font_size(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+
+	godot::RichTextLabel *rich_text_label = _resolve_rich_text_label(id, "get_font_size");
+	if (rich_text_label == nullptr) {
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	const int32_t font_size = rich_text_label->get_theme_font_size("normal_font_size", "RichTextLabel");
+	lua_pushinteger(p_L, font_size);
+	return 1;
+}
+
 // set_texture(handle, texture_path) -> bool
 // 设置 TextureRect 的纹理。
 // texture_path: 纹理资源路径。
@@ -366,6 +384,7 @@ static const luaL_Reg ui_funcs[] = {
 	{"get_size", l_get_size},
 	{"get_text", l_get_text},
 	{"set_text", l_set_text},
+	{"get_font_size", l_get_font_size},
 	{"set_texture", l_set_texture},
 	{"set_theme", l_set_theme},
 	{nullptr, nullptr}
