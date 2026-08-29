@@ -1,5 +1,6 @@
 #include "collision_module.h"
 
+#include "../lua/lua_runtime.h"
 #include "../lua/lua_signal_binding.h"
 #include "node_module.h"
 
@@ -339,8 +340,12 @@ static bool _perform_shape_query(
 		lua_pushvalue(p_L, p_callback_index);
 		lua_pushinteger(p_L, target_id);
 
-		if (lua_pcall(p_L, 1, 1, 0) != LUA_OK) {
-			godot::UtilityFunctions::printerr("native_collision: callback error: ", lua_tostring(p_L, -1));
+		const int call_result = LuaRuntime::pcall(
+				p_L,
+				1,
+				1,
+				"native_collision: callback error");
+		if (call_result != LUA_OK) {
 			lua_pop(p_L, 1);
 			return false;
 		}

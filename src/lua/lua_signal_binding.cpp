@@ -1,4 +1,5 @@
 #include "lua_signal_binding.h"
+#include "lua_runtime.h"
 
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
@@ -168,14 +169,12 @@ void lua_signal_binding_call_no_return(
 		return;
 	}
 
-	const int call_result = lua_pcall(p_L, p_arg_count, 0, 0);
+	godot::String context = "lua_signal_binding.call (";
+	context += p_debug_name;
+	context += "): callback error";
+
+	const int call_result = LuaRuntime::pcall(p_L, p_arg_count, 0, context);
 	if (call_result != LUA_OK) {
-		const char *err = lua_tostring(p_L, -1);
-		godot::String err_msg = "lua_signal_binding.call (";
-		err_msg += p_debug_name;
-		err_msg += "): callback error: ";
-		err_msg += err ? err : "(unknown)";
-		godot::UtilityFunctions::printerr(err_msg);
 		lua_pop(p_L, 1);
 	}
 }

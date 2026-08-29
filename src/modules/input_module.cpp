@@ -1,6 +1,7 @@
 #include "input_module.h"
 
 #include "../host/host_thread_check.h"
+#include "../lua/lua_runtime.h"
 
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/input_event.hpp>
@@ -293,12 +294,12 @@ void input_dispatch_event(lua_State *p_L, const godot::InputEvent *p_event) {
 		lua_pushstring(p_L, device_type);
 
 		// 调用函数（4 个参数，0 个返回值）
-		int call_result = lua_pcall(p_L, 4, 0, 0);
+		int call_result = LuaRuntime::pcall(
+				p_L,
+				4,
+				0,
+				"native_input: input callback error");
 		if (call_result != LUA_OK) {
-			const char *err = lua_tostring(p_L, -1);
-			godot::String err_msg = "native_input: input callback error: ";
-			err_msg += err ? err : "(unknown)";
-			godot::UtilityFunctions::printerr(err_msg);
 			lua_pop(p_L, 1);
 		}
 	}

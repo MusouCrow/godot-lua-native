@@ -1,6 +1,7 @@
 #include "core_module.h"
 
 #include "../host/host_thread_check.h"
+#include "../lua/lua_runtime.h"
 
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/engine.hpp>
@@ -138,12 +139,12 @@ int core_call_update(lua_State *p_L, double p_delta) {
 	lua_pushnumber(p_L, p_delta);
 
 	// 调用函数（1 个参数，0 个返回值）
-	int call_result = lua_pcall(p_L, 1, 0, 0);
+	int call_result = LuaRuntime::pcall(
+			p_L,
+			1,
+			0,
+			"native_core: update callback error");
 	if (call_result != LUA_OK) {
-		const char *err = lua_tostring(p_L, -1);
-		godot::String err_msg = "native_core: update callback error: ";
-		err_msg += err ? err : "(unknown)";
-		godot::UtilityFunctions::printerr(err_msg);
 		lua_pop(p_L, 1);
 		return call_result;
 	}
@@ -172,14 +173,14 @@ void core_call_shutdown(lua_State *p_L) {
 	}
 
 	// 调用函数（0 个参数，0 个返回值）
-	int call_result = lua_pcall(p_L, 0, 0, 0);
+	int call_result = LuaRuntime::pcall(
+			p_L,
+			0,
+			0,
+			"native_core: shutdown callback error");
 	if (call_result != LUA_OK) {
-		const char *err = lua_tostring(p_L, -1);
-		godot::String err_msg = "native_core: shutdown callback error: ";
-		err_msg += err ? err : "(unknown)";
-		godot::UtilityFunctions::printerr(err_msg);
 		lua_pop(p_L, 1);
-		// shutdown 错误只打印，不影响退出流程
+		// shutdown 错误只记录为致命，不影响本流程返回
 	}
 }
 

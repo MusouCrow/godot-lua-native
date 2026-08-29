@@ -31,6 +31,9 @@ void LuaHost::_bind_methods() {
 	godot::ClassDB::bind_method(godot::D_METHOD("tick", "delta"), &LuaHost::tick);
 	godot::ClassDB::bind_method(godot::D_METHOD("shutdown"), &LuaHost::shutdown);
 	godot::ClassDB::bind_method(godot::D_METHOD("input", "event"), &LuaHost::input);
+	godot::ClassDB::bind_method(godot::D_METHOD("has_fatal_error"), &LuaHost::has_fatal_error);
+	godot::ClassDB::bind_method(godot::D_METHOD("get_fatal_error"), &LuaHost::get_fatal_error);
+	godot::ClassDB::bind_method(godot::D_METHOD("terminate_runtime"), &LuaHost::terminate_runtime);
 }
 
 int LuaHost::run_file(const godot::String &p_path) {
@@ -78,6 +81,25 @@ void LuaHost::input(const godot::Ref<godot::InputEvent> &p_event) {
 		return;
 	}
 	input_dispatch_event(L, p_event.ptr());
+}
+
+bool LuaHost::has_fatal_error() {
+	return LuaRuntime::has_fatal_error();
+}
+
+godot::String LuaHost::get_fatal_error() {
+	return LuaRuntime::get_fatal_error();
+}
+
+void LuaHost::terminate_runtime() {
+	if (!ensure_main_thread("LuaHost.terminate_runtime")) {
+		return;
+	}
+
+	// 致命错误时直接销毁 Lua 运行时，不再执行 Lua shutdown 回调
+	if (LuaRuntime::is_initialized()) {
+		LuaRuntime::shutdown();
+	}
 }
 
 } // namespace luagd

@@ -31,11 +31,72 @@ extern "C" {
 
 namespace luagd {
 
+// 统一错误处理器：为 Lua 运行时错误追加调用堆栈。
+// 与 Lua 官方 lua.c 的 msghandler 行为一致。
+static int lua_runtime_error_handler(lua_State *p_L) {
+	const char *message = lua_tostring(p_L, 1);
+
+	if (message == nullptr) {
+		if (luaL_callmeta(p_L, 1, "__tostring") &&
+				lua_type(p_L, -1) == LUA_TSTRING) {
+			return 1;
+		}
+
+		message = lua_pushfstring(
+				p_L,
+				"(error object is a %s value)",
+				luaL_typename(p_L, 1));
+	}
+
+	luaL_traceback(p_L, p_L, message, 1);
+	return 1;
+}
+
 lua_State *LuaRuntime::state = nullptr;
+bool LuaRuntime::fatal_error = false;
+godot::String *LuaRuntime::fatal_error_message = nullptr;
+
+bool LuaRuntime::has_fatal_error() {
+	return fatal_error;
+}
+
+godot::String LuaRuntime::get_fatal_error() {
+	if (fatal_error_message != nullptr) {
+		return *fatal_error_message;
+	}
+	return godot::String();
+}
+
+void LuaRuntime::report_fatal_error(
+		const godot::String &p_context,
+		const godot::String &p_message) {
+	// 只锁存首条致命错误，后续连锁错误不覆盖
+	if (fatal_error) {
+		return;
+	}
+
+	fatal_error = true;
+
+	godot::String err_msg = p_context;
+	if (p_message.length() > 0) {
+		err_msg += ": ";
+		err_msg += p_message;
+	}
+
+	fatal_error_message = new godot::String(err_msg);
+	godot::UtilityFunctions::printerr(err_msg);
+}
 
 bool LuaRuntime::initialize() {
 	if (state != nullptr) {
 		return true;
+	}
+
+	// 清空上一轮的致命错误状态
+	fatal_error = false;
+	if (fatal_error_message != nullptr) {
+		delete fatal_error_message;
+		fatal_error_message = nullptr;
 	}
 
 	state = luaL_newstate();
@@ -122,6 +183,10 @@ bool LuaRuntime::initialize() {
 }
 
 void LuaRuntime::shutdown() {
+	if (state == nullptr) {
+		return;
+	}
+
 	debug_draw_cleanup();
 	audio_cleanup();
 	collision_cleanup();
@@ -130,10 +195,9 @@ void LuaRuntime::shutdown() {
 	ai_cleanup();
 	node_cleanup();
 	lua_signal_binding_cleanup(state);
-	if (state != nullptr) {
-		lua_close(state);
-		state = nullptr;
-	}
+
+	lua_close(state);
+	state = nullptr;
 }
 
 bool LuaRuntime::is_initialized() {
@@ -142,6 +206,39 @@ bool LuaRuntime::is_initialized() {
 
 lua_State *LuaRuntime::get_state() {
 	return state;
+}
+
+int LuaRuntime::pcall(
+		lua_State *p_L,
+		int p_arg_count,
+		int p_result_count,
+		const godot::String &p_context) {
+	if (p_L == nullptr) {
+		report_fatal_error(p_context, "(lua state is null)");
+		return LUA_ERRRUN;
+	}
+
+	// 被调用函数位于当前栈顶之下 p_arg_count 个位置
+	const int error_handler_index = lua_gettop(p_L) - p_arg_count;
+
+	// 将错误处理器压到函数与参数之前
+	lua_pushcfunction(p_L, lua_runtime_error_handler);
+	lua_insert(p_L, error_handler_index);
+
+	const int call_result = lua_pcall(
+			p_L,
+			p_arg_count,
+			p_result_count,
+			error_handler_index);
+
+	lua_remove(p_L, error_handler_index);
+
+	if (call_result != LUA_OK) {
+		const char *err = lua_tostring(p_L, -1);
+		report_fatal_error(p_context, err ? err : "(unknown)");
+	}
+
+	return call_result;
 }
 
 int LuaRuntime::run_file(const godot::String &p_path) {
@@ -171,19 +268,19 @@ int LuaRuntime::run_file(const godot::String &p_path) {
 	int load_result = luaL_loadbuffer(state, utf8_content.get_data(), utf8_content.length(), utf8_path.get_data());
 	if (load_result != LUA_OK) {
 		const char *err = lua_tostring(state, -1);
-		godot::String err_msg = "LuaRuntime.run_file: load error: ";
-		err_msg += err ? err : "(unknown)";
-		godot::UtilityFunctions::printerr(err_msg);
+		report_fatal_error(
+				"LuaRuntime.run_file: load error",
+				err ? err : "(unknown)");
 		lua_pop(state, 1);
 		return load_result;
 	}
 
-	int call_result = lua_pcall(state, 0, 1, 0);
+	int call_result = LuaRuntime::pcall(
+			state,
+			0,
+			1,
+			"LuaRuntime.run_file: runtime error");
 	if (call_result != LUA_OK) {
-		const char *err = lua_tostring(state, -1);
-		godot::String err_msg = "LuaRuntime.run_file: runtime error: ";
-		err_msg += err ? err : "(unknown)";
-		godot::UtilityFunctions::printerr(err_msg);
 		lua_pop(state, 1);
 		return call_result;
 	}
@@ -210,19 +307,19 @@ int LuaRuntime::run_string(const godot::String &p_code, const godot::String &p_c
 	int load_result = luaL_loadbuffer(state, utf8_code.get_data(), utf8_code.length(), utf8_chunk_name.get_data());
 	if (load_result != LUA_OK) {
 		const char *err = lua_tostring(state, -1);
-		godot::String err_msg = "LuaRuntime.run_string: load error: ";
-		err_msg += err ? err : "(unknown)";
-		godot::UtilityFunctions::printerr(err_msg);
+		report_fatal_error(
+				"LuaRuntime.run_string: load error",
+				err ? err : "(unknown)");
 		lua_pop(state, 1);
 		return load_result;
 	}
 
-	int call_result = lua_pcall(state, 0, 1, 0);
+	int call_result = LuaRuntime::pcall(
+			state,
+			0,
+			1,
+			"LuaRuntime.run_string: runtime error");
 	if (call_result != LUA_OK) {
-		const char *err = lua_tostring(state, -1);
-		godot::String err_msg = "LuaRuntime.run_string: runtime error: ";
-		err_msg += err ? err : "(unknown)";
-		godot::UtilityFunctions::printerr(err_msg);
 		lua_pop(state, 1);
 		return call_result;
 	}

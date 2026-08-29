@@ -41,6 +41,15 @@ public:
 	// p_event: Godot InputEvent。
 	void input(const godot::Ref<godot::InputEvent> &p_event);
 
+	// 返回：是否已经发生致命 Lua 错误。
+	bool has_fatal_error();
+
+	// 返回：首条致命错误信息（含上下文与调用堆栈）。
+	godot::String get_fatal_error();
+
+	// 致命错误时直接销毁 Lua 运行时，不再执行 Lua shutdown 回调。
+	void terminate_runtime();
+
 	// 单例访问
 	static LuaHost *get_singleton();
 
