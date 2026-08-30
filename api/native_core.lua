@@ -35,4 +35,9 @@ function M.set_time_scale(scale) end
 ---@return number 当前时间缩放倍率
 function M.get_time_scale() end
 
+--- native_core.get_root_path() -> string
+--- 获取项目根目录的绝对路径。
+---@return string 项目根目录的绝对路径
+function M.get_root_path() end
+
 return M

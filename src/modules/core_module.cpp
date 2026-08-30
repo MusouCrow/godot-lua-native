@@ -5,6 +5,7 @@
 
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
 
 extern "C" {
@@ -101,12 +102,21 @@ static int l_get_time_scale(lua_State *p_L) {
 	return 1;
 }
 
+// native_core.get_root_path() -> string
+// 获取项目根目录的绝对路径。
+static int l_get_root_path(lua_State *p_L) {
+	godot::String path = godot::ProjectSettings::get_singleton()->globalize_path("res://");
+	lua_pushstring(p_L, path.utf8().get_data());
+	return 1;
+}
+
 static const luaL_Reg core_funcs[] = {
 	{"bind_update", l_bind_update},
 	{"bind_shutdown", l_bind_shutdown},
 	{"quit", l_quit},
 	{"set_time_scale", l_set_time_scale},
 	{"get_time_scale", l_get_time_scale},
+	{"get_root_path", l_get_root_path},
 	{nullptr, nullptr}
 };
 
