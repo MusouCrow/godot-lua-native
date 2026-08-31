@@ -149,8 +149,9 @@ static void free_request_record(const RequestRecord *p_rec) {
 	free_node_immediately(p_rec->request);
 }
 
-// http_post(url, content_type, body) -> id, error
+// http_post(url, content_type, authorization, body) -> id, error
 // 发起 HTTP POST 请求，内部创建 HTTPRequest 节点挂载到容器。
+// authorization 为空字符串时不携带 Authorization 头。
 // 返回请求 ID 与错误码；发起失败时返回 id=-1。
 static int l_http_post(lua_State *p_L) {
 	if (!initialized) {
@@ -162,7 +163,8 @@ static int l_http_post(lua_State *p_L) {
 
 	const char *url = luaL_checkstring(p_L, 1);
 	const char *content_type = luaL_checkstring(p_L, 2);
-	const char *body = luaL_checkstring(p_L, 3);
+	const char *authorization = luaL_optstring(p_L, 3, "");
+	const char *body = luaL_checkstring(p_L, 4);
 
 	RequestRecord rec;
 	rec.id = next_id++;
@@ -177,6 +179,9 @@ static int l_http_post(lua_State *p_L) {
 
 	godot::PackedStringArray headers;
 	headers.push_back(godot::String("Content-Type: ") + content_type);
+	if (authorization[0] != '\0') {
+		headers.push_back(godot::String("Authorization: ") + authorization);
+	}
 
 	godot::Error err = rec.request->request(
 			godot::String(url), headers, godot::HTTPClient::METHOD_POST, godot::String(body));

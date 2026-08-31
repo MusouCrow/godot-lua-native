@@ -23,15 +23,16 @@ function M.is_initialized() end
 -- 请求生命周期
 -- ============================================================================
 
---- native_network.http_post(url, content_type, body) -> id, error
+--- native_network.http_post(url, content_type, authorization, body) -> id, error
 --- 发起 HTTP POST 请求，内部创建 HTTPRequest 节点挂载到容器。
 --- 必须先调用 init() 初始化模块。
 ---@param url string 目标 URL
 ---@param content_type string Content-Type，如 "application/json"
+---@param authorization string Authorization 头内容（如 "Bearer xxx"），空字符串时不携带该头
 ---@param body string 请求体
 ---@return integer id 请求 ID，发起失败返回 -1
 ---@return integer error 错误码，0 表示成功（Error.OK）
-function M.http_post(url, content_type, body) end
+function M.http_post(url, content_type, authorization, body) end
 
 --- native_network.is_http_post_completed(request_id) -> bool
 --- 查询指定请求是否已完成（无论成功或失败）。
