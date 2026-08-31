@@ -9,6 +9,7 @@
 #include "lua_host.h"
 #include "../lua/lua_runtime.h"
 #include "../modules/collision_module.h"
+#include "../modules/network_module.h"
 
 using namespace godot;
 
@@ -24,6 +25,7 @@ void initialize_luagd_module(ModuleInitializationLevel p_level) {
 
 	// 注册信号接收器类型
 	luagd::collision_register_signal_receivers();
+	luagd::network_register_signal_receivers();
 
 	// 注册 LuaHost 类
 	GDREGISTER_CLASS(luagd::LuaHost);

@@ -9,6 +9,7 @@
 #include "../modules/input_module.h"
 #include "../modules/system_module.h"
 #include "../modules/audio_module.h"
+#include "../modules/network_module.h"
 #include "../modules/anim_module.h"
 #include "../modules/particles_module.h"
 #include "../modules/node_module.h"
@@ -179,6 +180,10 @@ bool LuaRuntime::initialize() {
 	luaL_requiref(state, "native_ui", luaopen_native_ui, 0);
 	lua_pop(state, 1);
 
+	// 注册 native_network 模块
+	luaL_requiref(state, "native_network", luaopen_native_network, 0);
+	lua_pop(state, 1);
+
 	return true;
 }
 
@@ -194,6 +199,7 @@ void LuaRuntime::shutdown() {
 	anim_cleanup();
 	ai_cleanup();
 	node_cleanup();
+	network_cleanup();
 	lua_signal_binding_cleanup(state);
 
 	lua_close(state);

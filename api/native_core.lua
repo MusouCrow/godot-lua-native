@@ -40,4 +40,16 @@ function M.get_time_scale() end
 ---@return string 项目根目录的绝对路径
 function M.get_root_path() end
 
+--- native_core.get_unique_id() -> string
+--- 获取设备唯一标识符。
+--- 注意：该字符串在重装系统、升级或修改硬件后可能变化，不可用于持久数据加密；也可能被外部程序伪造，不可用于安全校验。
+---@return string 设备唯一标识符
+function M.get_unique_id() end
+
+--- native_core.string_hash(str) -> integer
+--- 计算字符串的哈希值，与 Godot 的 String.hash() 一致。
+---@param str string 待计算哈希的字符串
+---@return integer 32 位哈希数值
+function M.string_hash(str) end
+
 return M

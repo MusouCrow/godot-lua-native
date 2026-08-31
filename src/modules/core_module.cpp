@@ -4,7 +4,9 @@
 #include "../lua/lua_runtime.h"
 
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
 
@@ -110,6 +112,33 @@ static int l_get_root_path(lua_State *p_L) {
 	return 1;
 }
 
+// native_core.string_hash(str) -> integer
+// 计算字符串的哈希值，与 Godot 的 String.hash() 一致。
+// str: 待计算哈希的字符串。
+// 返回：32 位哈希数值。
+static int l_string_hash(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 1) {
+		godot::UtilityFunctions::printerr("native_core.string_hash: expected 1 argument (string), got ", argc);
+		return 0;
+	}
+
+	const char *str = luaL_checkstring(p_L, 1);
+	godot::String gd_str = str;
+	lua_pushinteger(p_L, gd_str.hash());
+
+	return 1;
+}
+
+// native_core.get_unique_id() -> string
+// 获取设备唯一标识符。
+// 注意：该字符串在重装系统、升级或修改硬件后可能变化，不可用于持久数据加密；也可能被外部程序伪造，不可用于安全校验。
+static int l_get_unique_id(lua_State *p_L) {
+	godot::String unique_id = godot::OS::get_singleton()->get_unique_id();
+	lua_pushstring(p_L, unique_id.utf8().get_data());
+	return 1;
+}
+
 static const luaL_Reg core_funcs[] = {
 	{"bind_update", l_bind_update},
 	{"bind_shutdown", l_bind_shutdown},
@@ -117,6 +146,8 @@ static const luaL_Reg core_funcs[] = {
 	{"set_time_scale", l_set_time_scale},
 	{"get_time_scale", l_get_time_scale},
 	{"get_root_path", l_get_root_path},
+	{"string_hash", l_string_hash},
+	{"get_unique_id", l_get_unique_id},
 	{nullptr, nullptr}
 };
 

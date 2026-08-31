@@ -6,7 +6,8 @@ struct lua_State;
 namespace luagd {
 
 // 打开 native_core 模块。
-// 注册 bind_update、bind_shutdown 函数。
+// 注册 bind_update、bind_shutdown、quit、set_time_scale、get_time_scale、
+// get_root_path、string_hash、get_unique_id 函数。
 // 返回：在 Lua 栈上返回 1（模块表）。
 int luaopen_native_core(lua_State *p_L);
 

@@ -99,6 +99,7 @@ set(EXTENSION_SOURCES
 				src/modules/skeleton_module.cpp
 				src/modules/ai_module.cpp
 				src/modules/ui_module.cpp
+				src/modules/network_module.cpp
 				src/debug_draw/debug_draw_scene.cpp
 				src/debug_draw/debug_draw_build.cpp
 )
