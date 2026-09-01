@@ -34,6 +34,7 @@ void LuaHost::_bind_methods() {
 	godot::ClassDB::bind_method(godot::D_METHOD("has_fatal_error"), &LuaHost::has_fatal_error);
 	godot::ClassDB::bind_method(godot::D_METHOD("get_fatal_error"), &LuaHost::get_fatal_error);
 	godot::ClassDB::bind_method(godot::D_METHOD("terminate_runtime"), &LuaHost::terminate_runtime);
+	godot::ClassDB::bind_method(godot::D_METHOD("flush_fatal", "message"), &LuaHost::flush_fatal);
 }
 
 int LuaHost::run_file(const godot::String &p_path) {
@@ -100,6 +101,18 @@ void LuaHost::terminate_runtime() {
 	if (LuaRuntime::is_initialized()) {
 		LuaRuntime::shutdown();
 	}
+}
+
+void LuaHost::flush_fatal(const godot::String &p_message) {
+	if (!ensure_main_thread("LuaHost.flush_fatal")) {
+		return;
+	}
+
+	lua_State *L = LuaRuntime::get_state();
+	if (L == nullptr) {
+		return;
+	}
+	core_call_fatal(L, p_message);
 }
 
 } // namespace luagd

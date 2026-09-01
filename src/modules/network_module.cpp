@@ -255,11 +255,11 @@ static int l_destroy_request(lua_State *p_L) {
 	return 0;
 }
 
-// http_post_sync(url, content_type, authorization, body, timeout?) -> bool
-// 阻塞式 POST，仅确保请求字节发出，不读响应体。仅供关闭时同步 flush 使用。
+// 同步发送 HTTP 请求的实现主体，POST / PUT 共用。
+// 仅确保请求字节发出，不读响应体。仅供关闭或致命错误时同步 flush 使用。
 // 约束：仅支持 http://，遇 https:// 直接失败。timeout 单位秒，默认 1.0。
 // 注意：不使用 HTTPRequest，因其依赖场景树逐帧 process，关闭时无法驱动。
-static int l_http_post_sync(lua_State *p_L) {
+static int http_sync_impl(lua_State *p_L, godot::HTTPClient::Method p_method) {
 	const char *url = luaL_checkstring(p_L, 1);
 	const char *content_type = luaL_checkstring(p_L, 2);
 	const char *authorization = luaL_optstring(p_L, 3, "");
@@ -268,7 +268,7 @@ static int l_http_post_sync(lua_State *p_L) {
 
 	godot::String full_url(url);
 	if (!full_url.begins_with("http://")) {
-		godot::UtilityFunctions::printerr("native_network.http_post_sync: only http:// supported, url=", full_url);
+		godot::UtilityFunctions::printerr("native_network.http_sync: only http:// supported, url=", full_url);
 		lua_pushboolean(p_L, false);
 		return 1;
 	}
@@ -287,7 +287,7 @@ static int l_http_post_sync(lua_State *p_L) {
 	uint64_t timeout_ms = (uint64_t)(timeout * 1000.0);
 
 	if (client->connect_to_host(host, port) != godot::Error::OK) {
-		godot::UtilityFunctions::printerr("native_network.http_post_sync: connect failed, host=", host);
+		godot::UtilityFunctions::printerr("native_network.http_sync: connect failed, host=", host);
 		lua_pushboolean(p_L, false);
 		return 1;
 	}
@@ -301,12 +301,12 @@ static int l_http_post_sync(lua_State *p_L) {
 		}
 		if (status != godot::HTTPClient::STATUS_CONNECTING
 				&& status != godot::HTTPClient::STATUS_RESOLVING) {
-			godot::UtilityFunctions::printerr("native_network.http_post_sync: connect status error, status=", (int64_t)status);
+			godot::UtilityFunctions::printerr("native_network.http_sync: connect status error, status=", (int64_t)status);
 			lua_pushboolean(p_L, false);
 			return 1;
 		}
 		if (godot::Time::get_singleton()->get_ticks_msec() - start_ms > timeout_ms) {
-			godot::UtilityFunctions::printerr("native_network.http_post_sync: connect timeout");
+			godot::UtilityFunctions::printerr("native_network.http_sync: connect timeout");
 			lua_pushboolean(p_L, false);
 			return 1;
 		}
@@ -319,8 +319,8 @@ static int l_http_post_sync(lua_State *p_L) {
 	if (authorization[0] != '\0') {
 		headers.push_back(godot::String("Authorization: ") + authorization);
 	}
-	if (client->request(godot::HTTPClient::METHOD_POST, path, headers, godot::String(body)) != godot::Error::OK) {
-		godot::UtilityFunctions::printerr("native_network.http_post_sync: request failed");
+	if (client->request(p_method, path, headers, godot::String(body)) != godot::Error::OK) {
+		godot::UtilityFunctions::printerr("native_network.http_sync: request failed");
 		lua_pushboolean(p_L, false);
 		return 1;
 	}
@@ -329,7 +329,7 @@ static int l_http_post_sync(lua_State *p_L) {
 	while (client->get_status() == godot::HTTPClient::STATUS_REQUESTING) {
 		client->poll();
 		if (godot::Time::get_singleton()->get_ticks_msec() - start_ms > timeout_ms) {
-			godot::UtilityFunctions::printerr("native_network.http_post_sync: request timeout");
+			godot::UtilityFunctions::printerr("native_network.http_sync: request timeout");
 			lua_pushboolean(p_L, false);
 			return 1;
 		}
@@ -342,10 +342,26 @@ static int l_http_post_sync(lua_State *p_L) {
 	bool ok = (final_status == godot::HTTPClient::STATUS_BODY
 			|| final_status == godot::HTTPClient::STATUS_CONNECTED);
 	if (!ok) {
-		godot::UtilityFunctions::printerr("native_network.http_post_sync: unexpected final status=", (int64_t)final_status);
+		godot::UtilityFunctions::printerr("native_network.http_sync: unexpected final status=", (int64_t)final_status);
 	}
 	lua_pushboolean(p_L, ok);
 	return 1;
+}
+
+// http_post_sync(url, content_type, authorization, body, timeout?) -> bool
+// 阻塞式 POST，仅确保请求字节发出，不读响应体。仅供关闭时同步 flush 使用。
+// 约束：仅支持 http://，遇 https:// 直接失败。timeout 单位秒，默认 1.0。
+// 注意：不使用 HTTPRequest，因其依赖场景树逐帧 process，关闭时无法驱动。
+static int l_http_post_sync(lua_State *p_L) {
+	return http_sync_impl(p_L, godot::HTTPClient::METHOD_POST);
+}
+
+// http_put_sync(url, content_type, authorization, body, timeout?) -> bool
+// 阻塞式 PUT，仅确保请求字节发出，不读响应体。仅供致命错误时同步 flush 使用。
+// 约束：仅支持 http://，遇 https:// 直接失败。timeout 单位秒，默认 1.0。
+// 注意：不使用 HTTPRequest，因其依赖场景树逐帧 process，关闭时无法驱动。
+static int l_http_put_sync(lua_State *p_L) {
+	return http_sync_impl(p_L, godot::HTTPClient::METHOD_PUT);
 }
 
 // ============================================================================
@@ -362,6 +378,7 @@ static const luaL_Reg network_funcs[] = {
 	{"get_http_post_status", l_get_http_post_status},
 	{"destroy_request", l_destroy_request},
 	{"http_post_sync", l_http_post_sync},
+	{"http_put_sync", l_http_put_sync},
 
 	{nullptr, nullptr}
 };

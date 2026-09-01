@@ -20,6 +20,7 @@ namespace luagd {
 // Lua registry 键名，用于存储回调函数引用
 static const char *UPDATE_CALLBACK_KEY = "native_core.update_callback";
 static const char *SHUTDOWN_CALLBACK_KEY = "native_core.shutdown_callback";
+static const char *FATAL_CALLBACK_KEY = "native_core.fatal_callback";
 
 // native_core.bind_update(func) -> void
 // 绑定 update 回调函数。
@@ -61,6 +62,28 @@ static int l_bind_shutdown(lua_State *p_L) {
 	// 将函数存储到 registry
 	lua_pushvalue(p_L, 1);  // 复制函数到栈顶
 	lua_setfield(p_L, LUA_REGISTRYINDEX, SHUTDOWN_CALLBACK_KEY);
+
+	return 0;
+}
+
+// native_core.bind_fatal(func) -> void
+// 绑定致命错误善后回调函数。
+// func: 接收 message 字符串参数的函数，在 Lua 运行时销毁前被调用。
+static int l_bind_fatal(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 1) {
+		godot::UtilityFunctions::printerr("native_core.bind_fatal: expected 1 argument (function), got ", argc);
+		return 0;
+	}
+
+	if (!lua_isfunction(p_L, 1)) {
+		godot::UtilityFunctions::printerr("native_core.bind_fatal: argument must be a function");
+		return 0;
+	}
+
+	// 将函数存储到 registry
+	lua_pushvalue(p_L, 1);  // 复制函数到栈顶
+	lua_setfield(p_L, LUA_REGISTRYINDEX, FATAL_CALLBACK_KEY);
 
 	return 0;
 }
@@ -152,6 +175,7 @@ static int l_get_locale(lua_State *p_L) {
 static const luaL_Reg core_funcs[] = {
 	{"bind_update", l_bind_update},
 	{"bind_shutdown", l_bind_shutdown},
+	{"bind_fatal", l_bind_fatal},
 	{"quit", l_quit},
 	{"set_time_scale", l_set_time_scale},
 	{"get_time_scale", l_get_time_scale},
@@ -233,6 +257,45 @@ void core_call_shutdown(lua_State *p_L) {
 	if (call_result != LUA_OK) {
 		lua_pop(p_L, 1);
 		// shutdown 错误只记录为致命，不影响本流程返回
+	}
+}
+
+// 调用 Lua 的致命错误善后回调。
+// p_message: 致命错误文本，传入 Lua 侧用于报错上传。
+// 约束：只允许在主线程调用。
+// 错误只打印，不影响后续 terminate 与蓝屏显示流程。
+void core_call_fatal(lua_State *p_L, const godot::String &p_message) {
+	if (!ensure_main_thread("native_core.core_call_fatal")) {
+		return;
+	}
+
+	// 从 registry 获取回调函数
+	lua_getfield(p_L, LUA_REGISTRYINDEX, FATAL_CALLBACK_KEY);
+
+	if (lua_isnil(p_L, -1)) {
+		// 未绑定回调，静默跳过
+		lua_pop(p_L, 1);
+		return;
+	}
+
+	if (!lua_isfunction(p_L, -1)) {
+		godot::UtilityFunctions::printerr("native_core: fatal callback is not a function");
+		lua_pop(p_L, 1);
+		return;
+	}
+
+	// 压入 message 参数
+	lua_pushstring(p_L, p_message.utf8().get_data());
+
+	// 调用函数（1 个参数，0 个返回值）
+	int call_result = LuaRuntime::pcall(
+			p_L,
+			1,
+			0,
+			"native_core: fatal callback error");
+	if (call_result != LUA_OK) {
+		lua_pop(p_L, 1);
+		// fatal 善后错误只打印，不影响 terminate 与蓝屏流程
 	}
 }
 

@@ -65,4 +65,15 @@ function M.destroy_request(request_id) end
 ---@return boolean success 请求字节是否成功发出
 function M.http_post_sync(url, content_type, authorization, body, timeout) end
 
+--- native_network.http_put_sync(url, content_type, authorization, body, timeout?) -> bool
+--- 阻塞式 PUT，仅确保请求字节发出，不读响应体。仅供致命错误善后时同步 flush 使用。
+--- 仅支持 http://，遇 https:// 直接失败。
+---@param url string 目标 URL（仅 http://）
+---@param content_type string Content-Type，如 "text/plain; charset=utf-8"
+---@param authorization string Authorization 头内容（如 "Bearer xxx"），空字符串时不携带该头
+---@param body string 请求体
+---@param timeout? number 超时秒数，默认 1.0
+---@return boolean success 请求字节是否成功发出
+function M.http_put_sync(url, content_type, authorization, body, timeout) end
+
 return M

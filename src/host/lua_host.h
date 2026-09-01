@@ -50,6 +50,12 @@ public:
 	// 致命错误时直接销毁 Lua 运行时，不再执行 Lua shutdown 回调。
 	void terminate_runtime();
 
+	// 致命错误善后：在 terminate_runtime 之前调用 Lua 的 fatal 回调，
+	// 用于同步上传报错文本与录像队列。
+	// p_message: 致命错误文本。
+	// 错误只打印，不影响后续 terminate 与蓝屏显示流程。
+	void flush_fatal(const godot::String &p_message);
+
 	// 单例访问
 	static LuaHost *get_singleton();
 

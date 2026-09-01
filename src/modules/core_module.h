@@ -1,6 +1,8 @@
 #ifndef LUAGD_CORE_MODULE_H
 #define LUAGD_CORE_MODULE_H
 
+#include <godot_cpp/variant/string.hpp>
+
 struct lua_State;
 
 namespace luagd {
@@ -21,6 +23,12 @@ int core_call_update(lua_State *p_L, double p_delta);
 // 约束：只允许在主线程调用。
 // 错误只打印，不影响退出流程。
 void core_call_shutdown(lua_State *p_L);
+
+// 调用 Lua 的致命错误善后回调。
+// p_message: 致命错误文本，传入 Lua 侧用于报错上传。
+// 约束：只允许在主线程调用。
+// 错误只打印，不影响后续 terminate 与蓝屏显示流程。
+void core_call_fatal(lua_State *p_L, const godot::String &p_message);
 
 } // namespace luagd
 

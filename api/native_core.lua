@@ -17,6 +17,13 @@ function M.bind_update(func) end
 ---@return nil 绑定失败时由底层忽略或报错
 function M.bind_shutdown(func) end
 
+--- native_core.bind_fatal(func) -> void
+--- 绑定致命错误善后回调函数。
+--- 该函数将在 Lua 运行时销毁前被调用，用于同步上报报错文本与录像队列。
+---@param func fun(message: string): void 接收报错文本的回调函数
+---@return nil 绑定失败时由底层忽略或报错
+function M.bind_fatal(func) end
+
 --- native_core.quit(exit_code) -> void
 --- 请求优雅退出。
 ---@param exit_code? integer 退出码，默认 0
