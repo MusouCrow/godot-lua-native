@@ -139,6 +139,16 @@ static int l_get_unique_id(lua_State *p_L) {
 	return 1;
 }
 
+// native_core.get_locale() -> string
+// 获取宿主操作系统的区域设置（locale），与 Godot 的 OS.get_locale() 一致。
+// 返回：形如 language_Script_COUNTRY_VARIANT@extra 的字符串，language 之后的部分均为可选。
+// 注意：如需仅获取 2 或 3 字母语言代码，请使用 OS.get_locale_language()。
+static int l_get_locale(lua_State *p_L) {
+	godot::String locale = godot::OS::get_singleton()->get_locale();
+	lua_pushstring(p_L, locale.utf8().get_data());
+	return 1;
+}
+
 static const luaL_Reg core_funcs[] = {
 	{"bind_update", l_bind_update},
 	{"bind_shutdown", l_bind_shutdown},
@@ -148,6 +158,7 @@ static const luaL_Reg core_funcs[] = {
 	{"get_root_path", l_get_root_path},
 	{"string_hash", l_string_hash},
 	{"get_unique_id", l_get_unique_id},
+	{"get_locale", l_get_locale},
 	{nullptr, nullptr}
 };
 

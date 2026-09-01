@@ -46,6 +46,13 @@ function M.get_root_path() end
 ---@return string 设备唯一标识符
 function M.get_unique_id() end
 
+--- native_core.get_locale() -> string
+--- 获取宿主操作系统的区域设置（locale），与 Godot 的 OS.get_locale() 一致。
+--- 返回形如 language_Script_COUNTRY_VARIANT@extra 的字符串，language 之后的部分均为可选。
+--- 如需仅获取语言代码，可使用 OS.get_locale_language()。
+---@return string 宿主操作系统的区域设置字符串
+function M.get_locale() end
+
 --- native_core.string_hash(str) -> integer
 --- 计算字符串的哈希值，与 Godot 的 String.hash() 一致。
 ---@param str string 待计算哈希的字符串
