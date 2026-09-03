@@ -2,6 +2,7 @@
 
 #include "node_module.h"
 
+#include <godot_cpp/classes/decal.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
@@ -318,8 +319,28 @@ static int l_set_material_overlay(lua_State *p_L) {
 	return 1;
 }
 
+// 对单个节点设置透明度：Decal 设置 albedo_mix（albedo_mix = 1 - transparency），
+// 其余 GeometryInstance3D 设置 transparency。
+// 返回：是否命中并修改了节点。
+static bool _set_node_transparency(godot::Node *p_node, float p_transparency) {
+	godot::Decal *decal = godot::Object::cast_to<godot::Decal>(p_node);
+	if (decal != nullptr) {
+		decal->set_albedo_mix(1.0f - p_transparency);
+		return true;
+	}
+
+	godot::GeometryInstance3D *geometry = godot::Object::cast_to<godot::GeometryInstance3D>(p_node);
+	if (geometry != nullptr) {
+		geometry->set_transparency(p_transparency);
+		return true;
+	}
+
+	return false;
+}
+
 // set_transparency(node_id, transparency) -> count
-// 设置节点自身及其直接子节点的transparency属性。
+// 设置节点自身及其直接子节点的透明度。
+// Decal 节点没有 transparency 属性，改为设置 albedo_mix。
 static int l_set_transparency(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	const double transparency = luaL_checknumber(p_L, 2);
@@ -343,9 +364,23 @@ static int l_set_transparency(lua_State *p_L) {
 		return 1;
 	}
 
-	int count = _apply_to_self_and_children(root_node, [transparency](godot::GeometryInstance3D *geom) {
-		geom->set_transparency((float)transparency);
-	});
+	const float transparency_f = (float)transparency;
+	int count = 0;
+
+	if (_set_node_transparency(root_node, transparency_f)) {
+		count++;
+	}
+
+	for (int64_t i = 0; i < root_node->get_child_count(); ++i) {
+		godot::Node *child = root_node->get_child(i);
+		if (child == nullptr) {
+			continue;
+		}
+
+		if (_set_node_transparency(child, transparency_f)) {
+			count++;
+		}
+	}
 
 	lua_pushinteger(p_L, count);
 	return 1;

@@ -72,10 +72,11 @@ function M.set_material_override(node_id, material_path) end
 function M.set_material_overlay(node_id, material_path) end
 
 --- native_material.set_transparency(node_id, transparency) -> integer
---- 设置节点自身及其直接子节点的 transparency 属性（0.0=不透明，1.0=完全透明）。
+--- 设置节点自身及其直接子节点的透明度（0.0=不透明，1.0=完全透明）。
+--- Decal 节点没有 transparency 属性，改为设置 albedo_mix（albedo_mix = 1 - transparency）。
 ---@param node_id integer 节点句柄
 ---@param transparency number 透明度值
----@return integer count 设置成功的 GeometryInstance3D 节点数量
+---@return integer count 设置成功的节点数量
 function M.set_transparency(node_id, transparency) end
 
 --- native_material.enable_cast_shadow(node_id, enabled) -> integer
