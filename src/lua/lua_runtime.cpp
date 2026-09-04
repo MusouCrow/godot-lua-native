@@ -201,6 +201,7 @@ void LuaRuntime::shutdown() {
 	node_cleanup();
 	network_cleanup();
 	lua_signal_binding_cleanup(state);
+	core_cleanup();
 
 	lua_close(state);
 	state = nullptr;

@@ -2,6 +2,7 @@
 
 #include "../host/host_thread_check.h"
 #include "../lua/lua_runtime.h"
+#include "../lua/packed_lua_archive.h"
 
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/string.hpp>
@@ -21,6 +22,43 @@ namespace luagd {
 static const char *UPDATE_CALLBACK_KEY = "native_core.update_callback";
 static const char *SHUTDOWN_CALLBACK_KEY = "native_core.shutdown_callback";
 static const char *FATAL_CALLBACK_KEY = "native_core.fatal_callback";
+
+// 已解析的 lua.dat 归档缓存。使用指针以避免静态初始化 Godot 对象。
+// 同一 dat_path 复用，不同 dat_path 替换，LuaRuntime shutdown 时释放。
+static PackedLuaArchive *packed_lua_archive = nullptr;
+static godot::String *packed_lua_archive_path = nullptr;
+
+static bool ensure_packed_lua_archive(
+		const godot::String &p_dat_path,
+		godot::String *r_error) {
+	if (packed_lua_archive != nullptr &&
+			packed_lua_archive_path != nullptr &&
+			*packed_lua_archive_path == p_dat_path &&
+			packed_lua_archive->is_open()) {
+		return true;
+	}
+
+	if (packed_lua_archive == nullptr) {
+		packed_lua_archive = memnew(PackedLuaArchive);
+	}
+
+	if (packed_lua_archive_path == nullptr) {
+		packed_lua_archive_path = memnew(godot::String);
+	}
+
+	packed_lua_archive->close();
+	*packed_lua_archive_path = godot::String();
+
+	if (!packed_lua_archive->open(
+			p_dat_path,
+			LUA_VERSION_RELEASE_NUM,
+			r_error)) {
+		return false;
+	}
+
+	*packed_lua_archive_path = p_dat_path;
+	return true;
+}
 
 // native_core.bind_update(func) -> void
 // 绑定 update 回调函数。
@@ -172,6 +210,67 @@ static int l_get_locale(lua_State *p_L) {
 	return 1;
 }
 
+// native_core.load_packed_lua(dat_path, module_name) -> loader, loader_data
+// 从 lua.dat 归档中加载一个 Lua 字节码模块。
+// 成功：返回 loader 函数与 loader data 字符串，满足 Lua 5.5 searcher 协议。
+// 失败：返回 nil 与错误文本。
+// 不使用 luaL_error() 抛出归档错误，避免 longjmp 跳过 C++ 局部对象析构。
+static int l_load_packed_lua(lua_State *p_L) {
+	const char *dat_path_cstr =
+			luaL_checkstring(p_L, 1);
+	const char *module_name_cstr =
+			luaL_checkstring(p_L, 2);
+
+	const godot::String dat_path =
+			godot::String::utf8(dat_path_cstr);
+	const godot::String module_name =
+			godot::String::utf8(module_name_cstr);
+
+	godot::String error;
+
+	if (!ensure_packed_lua_archive(dat_path, &error)) {
+		lua_pushnil(p_L);
+		lua_pushstring(p_L, error.utf8().get_data());
+		return 2;
+	}
+
+	const uint8_t *bytecode = nullptr;
+	uint64_t bytecode_size = 0;
+
+	if (!packed_lua_archive->get_module(
+			module_name,
+			&bytecode,
+			&bytecode_size)) {
+		lua_pushnil(p_L);
+		lua_pushfstring(
+				p_L,
+				"packed Lua module not found: %s",
+				module_name_cstr);
+		return 2;
+	}
+
+	const godot::String chunk_name =
+			"@" + module_name.replace(".", "/") + ".lua";
+	const godot::CharString chunk_name_utf8 =
+			chunk_name.utf8();
+
+	const int load_result = luaL_loadbufferx(
+			p_L,
+			reinterpret_cast<const char *>(bytecode),
+			static_cast<size_t>(bytecode_size),
+			chunk_name_utf8.get_data(),
+			"b");
+
+	if (load_result != LUA_OK) {
+		lua_pushnil(p_L);
+		lua_insert(p_L, -2);
+		return 2;
+	}
+
+	lua_pushstring(p_L, chunk_name_utf8.get_data());
+	return 2;
+}
+
 static const luaL_Reg core_funcs[] = {
 	{"bind_update", l_bind_update},
 	{"bind_shutdown", l_bind_shutdown},
@@ -183,6 +282,7 @@ static const luaL_Reg core_funcs[] = {
 	{"string_hash", l_string_hash},
 	{"get_unique_id", l_get_unique_id},
 	{"get_locale", l_get_locale},
+	{"load_packed_lua", l_load_packed_lua},
 	{nullptr, nullptr}
 };
 
@@ -296,6 +396,20 @@ void core_call_fatal(lua_State *p_L, const godot::String &p_message) {
 	if (call_result != LUA_OK) {
 		lua_pop(p_L, 1);
 		// fatal 善后错误只打印，不影响 terminate 与蓝屏流程
+	}
+}
+
+// 清理 native_core 持有的 Lua archive 缓存。
+// 不访问 Lua 栈，可在 lua_close() 前后调用。
+void core_cleanup() {
+	if (packed_lua_archive != nullptr) {
+		godot::memdelete(packed_lua_archive);
+		packed_lua_archive = nullptr;
+	}
+
+	if (packed_lua_archive_path != nullptr) {
+		godot::memdelete(packed_lua_archive_path);
+		packed_lua_archive_path = nullptr;
 	}
 }
 

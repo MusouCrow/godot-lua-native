@@ -66,4 +66,14 @@ function M.get_locale() end
 ---@return integer 32 位哈希数值
 function M.string_hash(str) end
 
+--- native_core.load_packed_lua(dat_path, module_name) -> loader, loader_data
+--- 从 lua.dat 中加载一个 Lua 字节码模块。
+--- 成功时返回可执行的 loader 和 loader data。
+--- 失败时返回 nil 和错误文本。
+---@param dat_path string lua.dat 的 Godot 路径，例如 res://lua.dat
+---@param module_name string Lua 模块名，例如 svc.level_svc
+---@return function|nil loader
+---@return string loader_data_or_error
+function M.load_packed_lua(dat_path, module_name) end
+
 return M

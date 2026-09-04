@@ -30,6 +30,10 @@ void core_call_shutdown(lua_State *p_L);
 // 错误只打印，不影响后续 terminate 与蓝屏显示流程。
 void core_call_fatal(lua_State *p_L, const godot::String &p_message);
 
+// 清理 native_core 持有的 Lua archive 缓存。
+// 不访问 Lua 栈，可在 lua_close() 前后调用。
+void core_cleanup();
+
 } // namespace luagd
 
 #endif // LUAGD_CORE_MODULE_H
