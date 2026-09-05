@@ -7,8 +7,6 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/classes/engine.hpp>
-#include <godot_cpp/classes/os.hpp>
-#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
 
 extern "C" {
@@ -165,14 +163,6 @@ static int l_get_time_scale(lua_State *p_L) {
 	return 1;
 }
 
-// native_core.get_root_path() -> string
-// 获取项目根目录的绝对路径。
-static int l_get_root_path(lua_State *p_L) {
-	godot::String path = godot::ProjectSettings::get_singleton()->globalize_path("res://");
-	lua_pushstring(p_L, path.utf8().get_data());
-	return 1;
-}
-
 // native_core.string_hash(str) -> integer
 // 计算字符串的哈希值，与 Godot 的 String.hash() 一致。
 // str: 待计算哈希的字符串。
@@ -188,25 +178,6 @@ static int l_string_hash(lua_State *p_L) {
 	godot::String gd_str = str;
 	lua_pushinteger(p_L, gd_str.hash());
 
-	return 1;
-}
-
-// native_core.get_unique_id() -> string
-// 获取设备唯一标识符。
-// 注意：该字符串在重装系统、升级或修改硬件后可能变化，不可用于持久数据加密；也可能被外部程序伪造，不可用于安全校验。
-static int l_get_unique_id(lua_State *p_L) {
-	godot::String unique_id = godot::OS::get_singleton()->get_unique_id();
-	lua_pushstring(p_L, unique_id.utf8().get_data());
-	return 1;
-}
-
-// native_core.get_locale() -> string
-// 获取宿主操作系统的区域设置（locale），与 Godot 的 OS.get_locale() 一致。
-// 返回：形如 language_Script_COUNTRY_VARIANT@extra 的字符串，language 之后的部分均为可选。
-// 注意：如需仅获取 2 或 3 字母语言代码，请使用 OS.get_locale_language()。
-static int l_get_locale(lua_State *p_L) {
-	godot::String locale = godot::OS::get_singleton()->get_locale();
-	lua_pushstring(p_L, locale.utf8().get_data());
 	return 1;
 }
 
@@ -278,10 +249,7 @@ static const luaL_Reg core_funcs[] = {
 	{"quit", l_quit},
 	{"set_time_scale", l_set_time_scale},
 	{"get_time_scale", l_get_time_scale},
-	{"get_root_path", l_get_root_path},
 	{"string_hash", l_string_hash},
-	{"get_unique_id", l_get_unique_id},
-	{"get_locale", l_get_locale},
 	{"load_packed_lua", l_load_packed_lua},
 	{nullptr, nullptr}
 };
