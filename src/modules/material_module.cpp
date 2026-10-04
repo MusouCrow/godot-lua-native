@@ -26,9 +26,9 @@ static godot::ObjectID _read_node_id(lua_State *p_L, int p_index) {
 	return godot::ObjectID((uint64_t)luaL_checkinteger(p_L, p_index));
 }
 
-// 遍历节点自身及其直接子节点，对GeometryInstance3D执行操作
+// 递归遍历节点自身及其所有后代节点，对GeometryInstance3D执行操作
 template<typename Func>
-static int _apply_to_self_and_children(godot::Node *p_root, Func p_func) {
+static int _apply_to_self_and_descendants(godot::Node *p_root, Func p_func) {
 	int count = 0;
 
 	godot::GeometryInstance3D *self_geometry = godot::Object::cast_to<godot::GeometryInstance3D>(p_root);
@@ -43,11 +43,29 @@ static int _apply_to_self_and_children(godot::Node *p_root, Func p_func) {
 			continue;
 		}
 
-		godot::GeometryInstance3D *child_geometry = godot::Object::cast_to<godot::GeometryInstance3D>(child);
-		if (child_geometry != nullptr) {
-			p_func(child_geometry);
-			count++;
+		count += _apply_to_self_and_descendants(child, p_func);
+	}
+
+	return count;
+}
+
+// 递归遍历节点自身及其所有后代节点，对每个节点执行返回 bool 的操作，统计命中数。
+// 注意：与 _apply_to_self_and_descendants 不同，这里不限制节点类型。
+template<typename Func>
+static int _apply_node_to_self_and_descendants(godot::Node *p_root, Func p_func) {
+	int count = 0;
+
+	if (p_func(p_root)) {
+		count++;
+	}
+
+	for (int64_t i = 0; i < p_root->get_child_count(); ++i) {
+		godot::Node *child = p_root->get_child(i);
+		if (child == nullptr) {
+			continue;
 		}
+
+		count += _apply_node_to_self_and_descendants(child, p_func);
 	}
 
 	return count;
@@ -82,34 +100,29 @@ static void _duplicate_mesh_materials(godot::MeshInstance3D *p_mesh) {
 	}
 }
 
-// 对节点的直接子节点设置实例着色器参数的通用模板函数
+// 递归对节点自身及其所有后代节点设置实例着色器参数的通用模板函数
 template<typename ParamType>
-static bool _set_shader_parameter_to_children(
+static bool _set_shader_parameter_to_self_and_descendants(
 		godot::Node *p_root,
 		const godot::StringName &p_param_name,
 		const ParamType &p_value) {
-	bool applied = false;
+	int applied_count = _apply_node_to_self_and_descendants(
+			p_root,
+			[&p_param_name, &p_value](godot::Node *node) {
+				godot::GeometryInstance3D *geometry = godot::Object::cast_to<godot::GeometryInstance3D>(node);
+				if (geometry == nullptr) {
+					return false;
+				}
 
-	for (int64_t i = 0; i < p_root->get_child_count(); ++i) {
-		godot::Node *child = p_root->get_child(i);
-		if (child == nullptr) {
-			continue;
-		}
+				geometry->set_instance_shader_parameter(p_param_name, p_value);
+				return true;
+			});
 
-		godot::GeometryInstance3D *geometry = godot::Object::cast_to<godot::GeometryInstance3D>(child);
-		if (geometry == nullptr) {
-			continue;
-		}
-
-		geometry->set_instance_shader_parameter(p_param_name, p_value);
-		applied = true;
-	}
-
-	return applied;
+	return applied_count > 0;
 }
 
 // set_param_color(node_id, param_name, r, g, b, a) -> bool
-// 在节点的直接子节点中设置实例着色器颜色参数。
+// 递归设置节点自身及其所有后代节点的实例着色器颜色参数。
 static int l_set_param_color(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	const char *param_name = luaL_checkstring(p_L, 2);
@@ -140,14 +153,14 @@ static int l_set_param_color(lua_State *p_L) {
 	const godot::Color color((float)r, (float)g, (float)b, (float)a);
 	const godot::StringName param_name_sn(param_name);
 
-	bool applied = _set_shader_parameter_to_children(root_node, param_name_sn, color);
+	bool applied = _set_shader_parameter_to_self_and_descendants(root_node, param_name_sn, color);
 
 	lua_pushboolean(p_L, applied);
 	return 1;
 }
 
 // set_param_vec3(node_id, param_name, x, y, z) -> bool
-// 在节点的直接子节点中设置实例着色器Vector3参数。
+// 递归设置节点自身及其所有后代节点的实例着色器Vector3参数。
 static int l_set_param_vec3(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	const char *param_name = luaL_checkstring(p_L, 2);
@@ -177,14 +190,14 @@ static int l_set_param_vec3(lua_State *p_L) {
 	const godot::Vector3 vec3((float)x, (float)y, (float)z);
 	const godot::StringName param_name_sn(param_name);
 
-	bool applied = _set_shader_parameter_to_children(root_node, param_name_sn, vec3);
+	bool applied = _set_shader_parameter_to_self_and_descendants(root_node, param_name_sn, vec3);
 
 	lua_pushboolean(p_L, applied);
 	return 1;
 }
 
 // set_param_float(node_id, param_name, value) -> bool
-// 在节点的直接子节点中设置实例着色器float参数。
+// 递归设置节点自身及其所有后代节点的实例着色器float参数。
 static int l_set_param_float(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	const char *param_name = luaL_checkstring(p_L, 2);
@@ -212,14 +225,14 @@ static int l_set_param_float(lua_State *p_L) {
 	const float float_value = (float)value;
 	const godot::StringName param_name_sn(param_name);
 
-	bool applied = _set_shader_parameter_to_children(root_node, param_name_sn, float_value);
+	bool applied = _set_shader_parameter_to_self_and_descendants(root_node, param_name_sn, float_value);
 
 	lua_pushboolean(p_L, applied);
 	return 1;
 }
 
 // set_material_override(node_id, material_path) -> count
-// 设置节点自身及其直接子节点的material_override属性。
+// 递归设置节点自身及其所有后代节点的material_override属性。
 static int l_set_material_override(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
 	const char *material_path = luaL_checkstring(p_L, 2);
@@ -257,7 +270,7 @@ static int l_set_material_override(lua_State *p_L) {
 		return 1;
 	}
 
-	int count = _apply_to_self_and_children(root_node, [material](godot::GeometryInstance3D *geom) {
+	int count = _apply_to_self_and_descendants(root_node, [material](godot::GeometryInstance3D *geom) {
 		geom->set_material_override(material);
 	});
 
@@ -266,7 +279,7 @@ static int l_set_material_override(lua_State *p_L) {
 }
 
 // set_material_overlay(node_id, material_path) -> count
-// 设置节点自身及其直接子节点的material_overlay属性。
+// 递归设置节点自身及其所有后代节点的material_overlay属性。
 // material_path为nil时清空overlay。
 static int l_set_material_overlay(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
@@ -311,7 +324,7 @@ static int l_set_material_overlay(lua_State *p_L) {
 		}
 	}
 
-	int count = _apply_to_self_and_children(root_node, [material](godot::GeometryInstance3D *geom) {
+	int count = _apply_to_self_and_descendants(root_node, [material](godot::GeometryInstance3D *geom) {
 		geom->set_material_overlay(material);
 	});
 
@@ -339,7 +352,7 @@ static bool _set_node_transparency(godot::Node *p_node, float p_transparency) {
 }
 
 // set_transparency(node_id, transparency) -> count
-// 设置节点自身及其直接子节点的透明度。
+// 递归设置节点自身及其所有后代节点的透明度。
 // Decal 节点没有 transparency 属性，改为设置 albedo_mix。
 static int l_set_transparency(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
@@ -365,29 +378,16 @@ static int l_set_transparency(lua_State *p_L) {
 	}
 
 	const float transparency_f = (float)transparency;
-	int count = 0;
-
-	if (_set_node_transparency(root_node, transparency_f)) {
-		count++;
-	}
-
-	for (int64_t i = 0; i < root_node->get_child_count(); ++i) {
-		godot::Node *child = root_node->get_child(i);
-		if (child == nullptr) {
-			continue;
-		}
-
-		if (_set_node_transparency(child, transparency_f)) {
-			count++;
-		}
-	}
+	int count = _apply_node_to_self_and_descendants(root_node, [transparency_f](godot::Node *node) {
+		return _set_node_transparency(node, transparency_f);
+	});
 
 	lua_pushinteger(p_L, count);
 	return 1;
 }
 
 // enable_cast_shadow(node_id, enabled) -> count
-// 设置节点自身及其直接子节点的阴影投射开关。
+// 递归设置节点自身及其所有后代节点的阴影投射开关。
 // enabled: true=投射阴影(ON)，false=关闭阴影(OFF)。
 static int l_enable_cast_shadow(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
@@ -416,7 +416,7 @@ static int l_enable_cast_shadow(lua_State *p_L) {
 			? godot::GeometryInstance3D::SHADOW_CASTING_SETTING_ON
 			: godot::GeometryInstance3D::SHADOW_CASTING_SETTING_OFF;
 
-	int count = _apply_to_self_and_children(root_node, [shadow_mode](godot::GeometryInstance3D *geom) {
+	int count = _apply_to_self_and_descendants(root_node, [shadow_mode](godot::GeometryInstance3D *geom) {
 		geom->set_cast_shadows_setting(shadow_mode);
 	});
 
@@ -425,7 +425,7 @@ static int l_enable_cast_shadow(lua_State *p_L) {
 }
 
 // duplicate_materials(node_id) -> count
-// 复制节点自身及其直接子节点（MeshInstance3D）的材质。
+// 递归复制节点自身及其所有后代节点（MeshInstance3D）的材质。
 // 复制 material_override 与所有 surface_override_material，避免材质复用导致动画驱动产生问题。
 static int l_duplicate_materials(lua_State *p_L) {
 	const godot::ObjectID node_id = _read_node_id(p_L, 1);
@@ -449,26 +449,15 @@ static int l_duplicate_materials(lua_State *p_L) {
 		return 1;
 	}
 
-	int count = 0;
-
-	godot::MeshInstance3D *self_mesh = godot::Object::cast_to<godot::MeshInstance3D>(root_node);
-	if (self_mesh != nullptr) {
-		_duplicate_mesh_materials(self_mesh);
-		count++;
-	}
-
-	for (int64_t i = 0; i < root_node->get_child_count(); ++i) {
-		godot::Node *child = root_node->get_child(i);
-		if (child == nullptr) {
-			continue;
+	int count = _apply_node_to_self_and_descendants(root_node, [](godot::Node *node) {
+		godot::MeshInstance3D *mesh = godot::Object::cast_to<godot::MeshInstance3D>(node);
+		if (mesh == nullptr) {
+			return false;
 		}
 
-		godot::MeshInstance3D *child_mesh = godot::Object::cast_to<godot::MeshInstance3D>(child);
-		if (child_mesh != nullptr) {
-			_duplicate_mesh_materials(child_mesh);
-			count++;
-		}
-	}
+		_duplicate_mesh_materials(mesh);
+		return true;
+	});
 
 	lua_pushinteger(p_L, count);
 	return 1;
