@@ -56,6 +56,14 @@ function M.is_valid(id) end
 ---@return string name 节点名称
 function M.get_name(id) end
 
+--- native_node.set_name(id, name) -> string|false
+--- 设置节点名称。
+--- 注意：Godot 会对同级重名自动改名，返回值即最终生效的名称，便于调用方校验是否被改名。
+---@param id integer 节点句柄
+---@param name string 期望的节点名称（不可为空）
+---@return string|boolean result 最终生效的名称；节点句柄无效时返回 false
+function M.set_name(id, name) end
+
 --- native_node.get_type(id) -> string
 --- 获取节点当前的 Godot 运行时类型。
 ---@param id integer 节点句柄
@@ -75,5 +83,14 @@ function M.get_child_count(id, include_internal) end
 ---@param node_id integer 任意节点的 ObjectID（可以是未注册的）
 ---@return integer ancestor_id 已注册祖先节点的 ID，如果找不到返回 -1
 function M.find_registered_ancestor(node_id) end
+
+--- native_node.set_parent(node_id, parent_node_id, keep_global_transform?) -> boolean
+--- 将已登记节点移动到新的已登记父节点下，等价 Godot Node::reparent。
+--- 注意：目标父节点须在场景树内，且不能是自身或自身后代；节点须已有父节点。
+---@param node_id integer 待移动节点句柄
+---@param parent_node_id integer 目标父节点句柄
+---@param keep_global_transform boolean (可选) 是否保持世界变换，默认 false
+---@return boolean success 是否移动成功
+function M.set_parent(node_id, parent_node_id, keep_global_transform) end
 
 return M

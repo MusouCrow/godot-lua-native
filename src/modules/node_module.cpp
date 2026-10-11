@@ -330,6 +330,37 @@ static int l_get_name(lua_State *p_L) {
 	return 1;
 }
 
+// set_name(id, name) -> string|false
+// 设置节点名称。
+// 注意：Godot 会对同级重名自动改名，故返回最终生效的名称供调用方校验。
+// 返回：最终生效的名称；句柄无效时返回 false。
+static int l_set_name(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const char *name = luaL_checkstring(p_L, 2);
+
+	if (!ensure_main_thread("native_node.set_name")) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	NodeRecord *rec = get_node(id, "set_name");
+	if (rec == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Node *node = _get_record_node(rec);
+	if (node == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	node->set_name(godot::String(name));
+	const godot::CharString utf8_name = godot::String(node->get_name()).utf8();
+	lua_pushstring(p_L, utf8_name.get_data());
+	return 1;
+}
+
 // get_type(id) -> string
 // 返回节点当前的 Godot 运行时类名。
 static int l_get_type(lua_State *p_L) {
@@ -396,6 +427,58 @@ static int l_find_registered_ancestor(lua_State *p_L) {
 	return 1;
 }
 
+// set_parent(node_id, parent_node_id, keep_global_transform?) -> bool
+// 将已登记节点移动到新的已登记父节点下，等价 Godot Node::reparent。
+// 约束：目标父节点须在场景树内，且不是自身或自身后代（否则 Godot 会先把节点
+// 从旧父节点摘下，再因循环检测失败而不回挂）。
+// 注意：本函数不改变节点 owner，也不调整 root_children 归属；归属语义仍由
+// get_child_by_path 的查询起点决定。
+// 返回：成功 true；句柄无效、节点无父节点或会造成循环时返回 false。
+static int l_set_parent(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const godot::ObjectID parent_id = _read_object_id(p_L, 2);
+	const bool keep_global_transform = lua_toboolean(p_L, 3);
+
+	NodeRecord *rec = get_node(id, "set_parent");
+	NodeRecord *parent_rec = get_node(parent_id, "set_parent");
+	if (rec == nullptr || parent_rec == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Node *node = _get_record_node(rec);
+	godot::Node *new_parent = _get_record_node(parent_rec);
+	if (node == nullptr || new_parent == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	// 与 Godot reparent 前置条件一致：节点必须已有父节点
+	if (node->get_parent() == nullptr) {
+		godot::UtilityFunctions::printerr("native_node.set_parent: node has no parent");
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	if (!new_parent->is_inside_tree()) {
+		godot::UtilityFunctions::printerr("native_node.set_parent: new parent is not inside tree");
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	// 防循环：必须在 reparent 前拦截，否则节点会被摘下且无法回挂
+	if (node == new_parent || node->is_ancestor_of(new_parent)) {
+		godot::UtilityFunctions::printerr("native_node.set_parent: cannot parent to self or descendant");
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	// 同父时 Godot 内部直接返回，保持 no-op 成功语义
+	node->reparent(new_parent, keep_global_transform);
+	lua_pushboolean(p_L, true);
+	return 1;
+}
+
 static const luaL_Reg node_funcs[] = {
 	{"set_root", l_set_root},
 	{"instantiate", l_instantiate},
@@ -404,9 +487,11 @@ static const luaL_Reg node_funcs[] = {
 	{"get_child_by_path", l_get_child_by_path},
 	{"is_valid", l_is_valid},
 	{"get_name", l_get_name},
+	{"set_name", l_set_name},
 	{"get_type", l_get_type},
 	{"get_child_count", l_get_child_count},
 	{"find_registered_ancestor", l_find_registered_ancestor},
+	{"set_parent", l_set_parent},
 	{nullptr, nullptr}
 };
 
