@@ -202,6 +202,32 @@ static int l_get_child_by_path(lua_State *p_L) {
 	return 1;
 }
 
+// has_child_by_path(id, path) -> bool
+// 纯查询：判断已登记节点下是否存在指定路径的子节点。
+// 与 get_child_by_path 的差异：不注册节点、不修改引用记录、路径不存在时不输出错误，
+// 因此适合作为探测接口反复调用。
+// 返回：存在 true；句柄无效、节点已失效或路径不存在时返回 false。
+static int l_has_child_by_path(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const char *path = luaL_checkstring(p_L, 2);
+
+	// 纯查询语义：无效句柄视为“不存在”，不报错
+	if (!nodes.has(id)) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	godot::Node *owner_node = _resolve_node(id);
+	if (owner_node == nullptr) {
+		lua_pushboolean(p_L, false);
+		return 1;
+	}
+
+	const godot::NodePath node_path((godot::String(path)));
+	lua_pushboolean(p_L, owner_node->has_node(node_path));
+	return 1;
+}
+
 // set_root(path) -> bool
 // 设置后续实例化的挂载根节点。
 static int l_set_root(lua_State *p_L) {
@@ -485,6 +511,7 @@ static const luaL_Reg node_funcs[] = {
 	{"destroy", l_destroy},
 	{"get_node_by_path", l_get_node_by_path},
 	{"get_child_by_path", l_get_child_by_path},
+	{"has_child_by_path", l_has_child_by_path},
 	{"is_valid", l_is_valid},
 	{"get_name", l_get_name},
 	{"set_name", l_set_name},

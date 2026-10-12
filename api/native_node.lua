@@ -40,6 +40,14 @@ function M.get_node_by_path(path) end
 ---@return integer child_id 子节点句柄，失败返回 -1
 function M.get_child_by_path(id, path) end
 
+--- native_node.has_child_by_path(id, path) -> boolean
+--- 纯查询：判断指定节点下是否存在该路径的子节点。
+--- 与 get_child_by_path 不同，不注册节点、路径不存在时不输出错误，适合作为探测接口。
+---@param id integer 父节点句柄
+---@param path string 子节点路径（如 "target" 或 "bones/spine"）
+---@return boolean exists 存在 true；句柄无效、节点已失效或路径不存在时返回 false
+function M.has_child_by_path(id, path) end
+
 --- native_node.is_valid(id) -> boolean
 --- 检查节点引用是否有效。
 ---@param id integer 节点句柄
