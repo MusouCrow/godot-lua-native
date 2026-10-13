@@ -188,7 +188,7 @@ static int l_get_child_by_path(lua_State *p_L) {
 
 	const godot::NodePath node_path((godot::String(path)));
 	if (!owner_node->has_node(node_path)) {
-		godot::UtilityFunctions::printerr("native_node.get_child_by_path: node not found: ", path);
+		// 查找失败属于正常情况，不输出错误，由调用方判断返回值
 		lua_pushinteger(p_L, -1);
 		return 1;
 	}
@@ -204,7 +204,7 @@ static int l_get_child_by_path(lua_State *p_L) {
 
 // has_child_by_path(id, path) -> bool
 // 纯查询：判断已登记节点下是否存在指定路径的子节点。
-// 与 get_child_by_path 的差异：不注册节点、不修改引用记录、路径不存在时不输出错误，
+// 与 get_child_by_path 的差异：不注册节点、不修改引用记录，只返回存在性布尔值，
 // 因此适合作为探测接口反复调用。
 // 返回：存在 true；句柄无效、节点已失效或路径不存在时返回 false。
 static int l_has_child_by_path(lua_State *p_L) {
@@ -225,6 +225,60 @@ static int l_has_child_by_path(lua_State *p_L) {
 
 	const godot::NodePath node_path((godot::String(path)));
 	lua_pushboolean(p_L, owner_node->has_node(node_path));
+	return 1;
+}
+
+// find_child_by_name(id, pattern, recursive?, owned?) -> id
+// 在指定节点的后代中按名称模式查找第一个匹配节点并注册为引用句柄，
+// 等价 Godot Node::find_child。
+// 匹配：String::match，大小写敏感，'*' 匹配任意长度，'?' 匹配单字符；
+// 按场景树顺序返回首个匹配。
+// 范围：后代节点，不含自身；recursive=false 时仅直接子节点。
+// 注意：owned=true 仅匹配 owner 有效的后代；本项目运行时挂载或 set_parent 移动的
+// 节点 owner 多为空，故缺省 false 以覆盖全部后代。
+// 返回：匹配子节点句柄；未找到、pattern 为空或句柄无效时返回 -1（查找失败不输出错误）。
+static int l_find_child_by_name(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+	const char *pattern = luaL_checkstring(p_L, 2);
+
+	// 缺省 recursive=true：与 Godot 默认一致，也符合本接口的用途
+	bool recursive = true;
+	if (!lua_isnoneornil(p_L, 3)) {
+		recursive = lua_toboolean(p_L, 3) != 0;
+	}
+	const bool owned = lua_toboolean(p_L, 4);
+
+	NodeRecord *owner_rec = get_node(id, "find_child_by_name");
+	if (owner_rec == nullptr) {
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	godot::Node *owner_node = _get_record_node(owner_rec);
+	if (owner_node == nullptr) {
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	const godot::String name_pattern(pattern);
+	if (name_pattern.is_empty()) {
+		godot::UtilityFunctions::printerr("native_node.find_child_by_name: empty pattern");
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	godot::Node *found_node = owner_node->find_child(name_pattern, recursive, owned);
+	if (found_node == nullptr) {
+		// 查找失败属于正常情况，不输出错误，由调用方判断返回值
+		lua_pushinteger(p_L, -1);
+		return 1;
+	}
+
+	const godot::ObjectID child_id = _register_node(found_node, NODE_OWNERSHIP_REFERENCE);
+	const godot::ObjectID root_id = _get_tracking_root_id(owner_node);
+	root_children[root_id].insert(child_id);
+
+	lua_pushinteger(p_L, (int64_t)child_id);
 	return 1;
 }
 
@@ -512,6 +566,7 @@ static const luaL_Reg node_funcs[] = {
 	{"get_node_by_path", l_get_node_by_path},
 	{"get_child_by_path", l_get_child_by_path},
 	{"has_child_by_path", l_has_child_by_path},
+	{"find_child_by_name", l_find_child_by_name},
 	{"is_valid", l_is_valid},
 	{"get_name", l_get_name},
 	{"set_name", l_set_name},

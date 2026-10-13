@@ -35,6 +35,7 @@ function M.get_node_by_path(path) end
 
 --- native_node.get_child_by_path(id, path) -> int
 --- 基于指定节点查找任意类型的子节点并返回句柄。
+--- 查找失败时返回 -1，不输出错误。
 ---@param id integer 父节点句柄
 ---@param path string 子节点路径（如 "target" 或 "bones/spine"）
 ---@return integer child_id 子节点句柄，失败返回 -1
@@ -42,11 +43,22 @@ function M.get_child_by_path(id, path) end
 
 --- native_node.has_child_by_path(id, path) -> boolean
 --- 纯查询：判断指定节点下是否存在该路径的子节点。
---- 与 get_child_by_path 不同，不注册节点、路径不存在时不输出错误，适合作为探测接口。
+--- 与 get_child_by_path 不同，不注册节点、不修改引用记录，适合作为探测接口。
 ---@param id integer 父节点句柄
 ---@param path string 子节点路径（如 "target" 或 "bones/spine"）
 ---@return boolean exists 存在 true；句柄无效、节点已失效或路径不存在时返回 false
 function M.has_child_by_path(id, path) end
+
+--- native_node.find_child_by_name(id, pattern, recursive?, owned?) -> int
+--- 在指定节点的后代中按名称模式查找第一个匹配节点并返回句柄（等价 Godot Node::find_child）。
+--- 匹配大小写敏感，支持通配：'*' 匹配任意长度，'?' 匹配单字符；按场景树顺序返回首个匹配。
+--- 搜索范围为后代节点，不含节点自身；查找失败时返回 -1，不输出错误。
+---@param id integer 父节点句柄
+---@param pattern string 名称匹配模式（如 "spine"、"*_hand"、"bone_?"）
+---@param recursive boolean (可选) 是否递归搜索全部后代，默认 true；false 时仅直接子节点
+---@param owned boolean (可选) 是否仅匹配 owner 有效的后代，默认 false
+---@return integer child_id 匹配到的子节点句柄，未找到或句柄无效时返回 -1
+function M.find_child_by_name(id, pattern, recursive, owned) end
 
 --- native_node.is_valid(id) -> boolean
 --- 检查节点引用是否有效。
