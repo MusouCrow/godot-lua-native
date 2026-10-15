@@ -76,6 +76,14 @@ function M.is_valid(id) end
 ---@return string name 节点名称
 function M.get_name(id) end
 
+--- native_node.get_path(id) -> string
+--- 获取节点在场景树中的绝对路径（相对 SceneTree 根 /root）。
+--- 与 get_node_by_path 互为反向：get_node_by_path(get_path(id)) 可还原同一节点。
+--- 纯查询：不注册节点、不修改引用记录。
+---@param id integer 节点句柄
+---@return string path 节点绝对路径（如 "/root/pre_entry/pre_scene/[entity]/..."）；句柄无效或节点不在场景树内时返回空字符串 ""
+function M.get_path(id) end
+
 --- native_node.set_name(id, name) -> string|false
 --- 设置节点名称。
 --- 注意：Godot 会对同级重名自动改名，返回值即最终生效的名称，便于调用方校验是否被改名。

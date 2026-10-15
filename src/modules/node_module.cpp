@@ -410,6 +410,30 @@ static int l_get_name(lua_State *p_L) {
 	return 1;
 }
 
+// get_path(id) -> string
+// 获取节点相对 SceneTree 根（/root）的绝对路径，与 get_node_by_path 互为反向。
+// 纯查询：不注册节点、不修改引用记录。
+// 返回：形如 "/root/pre_entry/pre_scene/[entity]/..."；句柄无效或节点不在场景树内时
+// 返回空字符串（Godot 对不在树内的节点同样返回空 NodePath）。
+static int l_get_path(lua_State *p_L) {
+	const godot::ObjectID id = _read_object_id(p_L, 1);
+
+	if (!nodes.has(id)) {
+		lua_pushstring(p_L, "");
+		return 1;
+	}
+
+	godot::Node *node = _resolve_node(id);
+	if (node == nullptr || !node->is_inside_tree()) {
+		lua_pushstring(p_L, "");
+		return 1;
+	}
+
+	const godot::CharString utf8_path = godot::String(node->get_path()).utf8();
+	lua_pushstring(p_L, utf8_path.get_data());
+	return 1;
+}
+
 // set_name(id, name) -> string|false
 // 设置节点名称。
 // 注意：Godot 会对同级重名自动改名，故返回最终生效的名称供调用方校验。
@@ -569,6 +593,7 @@ static const luaL_Reg node_funcs[] = {
 	{"find_child_by_name", l_find_child_by_name},
 	{"is_valid", l_is_valid},
 	{"get_name", l_get_name},
+	{"get_path", l_get_path},
 	{"set_name", l_set_name},
 	{"get_type", l_get_type},
 	{"get_child_count", l_get_child_count},

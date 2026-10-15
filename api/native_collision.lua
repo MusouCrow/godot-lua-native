@@ -84,6 +84,20 @@ function M.intersect_box(ref_node_id, pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, 
 ---@return number? normal_z 命中点法线 Z
 function M.intersect_ray(ref_node_id, from_x, from_y, from_z, to_x, to_y, to_z, collision_mask) end
 
+--- native_collision.intersect_point(ref_node_id, pos_x, pos_y, pos_z, collision_mask, callback) -> void
+--- 对指定位置执行点检测，判断该点处于哪些实体碰撞形状内部。
+--- 通过参考节点获取物理世界，在指定全局坐标进行点查询；
+--- 仅检测 PhysicsBody3D（不含 Area3D），不使用 AttackHitbox3D 节点。
+--- 对每个命中的碰撞目标调用 callback 函数，传入 target_id（ObjectID）。
+--- callback 返回 false 可提前终止迭代。
+---@param ref_node_id integer 参考节点的 ObjectID（用于获取 World3D）
+---@param pos_x number 点坐标 X（全局坐标）
+---@param pos_y number 点坐标 Y
+---@param pos_z number 点坐标 Z
+---@param collision_mask integer 碰撞层掩码，0 表示检测所有层
+---@param callback fun(target_id: integer): boolean 回调函数，参数为碰撞目标的 ObjectID，返回 false 终止迭代
+function M.intersect_point(ref_node_id, pos_x, pos_y, pos_z, collision_mask, callback) end
+
 --- native_collision.set_hitbox_active(node_id, active) -> void
 --- 设置指定节点或其子节点中的 AttackHitbox3D 的 active 状态。
 --- 如果 node_id 本身是 AttackHitbox3D，直接设置；

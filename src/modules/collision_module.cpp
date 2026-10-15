@@ -11,6 +11,7 @@
 #include <godot_cpp/classes/collision_shape3d.hpp>
 #include <godot_cpp/classes/cylinder_shape3d.hpp>
 #include <godot_cpp/classes/physics_direct_space_state3d.hpp>
+#include <godot_cpp/classes/physics_point_query_parameters3d.hpp>
 #include <godot_cpp/classes/physics_ray_query_parameters3d.hpp>
 #include <godot_cpp/classes/physics_shape_query_parameters3d.hpp>
 #include <godot_cpp/classes/shape3d.hpp>
@@ -39,6 +40,7 @@ static godot::Ref<godot::CylinderShape3D> cached_cylinder_shape;
 static godot::Ref<godot::BoxShape3D> cached_box_shape;
 static godot::Ref<godot::PhysicsShapeQueryParameters3D> cached_query_params;
 static godot::Ref<godot::PhysicsRayQueryParameters3D> cached_ray_params;
+static godot::Ref<godot::PhysicsPointQueryParameters3D> cached_point_params;
 
 // TriggerSignalReceiver：接收 Area3D 的 body_entered / body_exited 信号。
 // 两个信号各持有一个实例，通过 instance_id + is_enter 调用 Lua 回调。
@@ -631,6 +633,84 @@ static int l_intersect_ray(lua_State *p_L) {
 	return 7;
 }
 
+// intersect_point(ref_node_id, pos_x, pos_y, pos_z, collision_mask, callback) -> void
+// 对指定位置执行点检测，返回该点所处的实体碰撞形状。
+// 通过参考节点获取物理世界；仅检测 PhysicsBody3D（不含 Area3D）。
+// 对每个命中的碰撞目标调用 callback(target_id)，返回 false 可提前终止迭代。
+static int l_intersect_point(lua_State *p_L) {
+	int argc = lua_gettop(p_L);
+	if (argc < 6) {
+		godot::UtilityFunctions::printerr("native_collision.intersect_point: expected 6 args, got ", argc);
+		return 0;
+	}
+
+	godot::ObjectID node_id = _read_node_id(p_L, 1);
+
+	godot::Vector3 position(
+			(float)luaL_checknumber(p_L, 2),
+			(float)luaL_checknumber(p_L, 3),
+			(float)luaL_checknumber(p_L, 4));
+	uint32_t collision_mask = (uint32_t)luaL_checkinteger(p_L, 5);
+
+	if (collision_mask == 0) {
+		collision_mask = 0xFFFFFFFF;
+	}
+
+	luaL_checktype(p_L, 6, LUA_TFUNCTION);
+
+	godot::Node3D *node = _resolve_node(node_id, "intersect_point");
+	if (!node) {
+		return 0;
+	}
+
+	if (cached_point_params.is_null()) {
+		cached_point_params.instantiate();
+	}
+
+	godot::Ref<godot::World3D> world = node->get_world_3d();
+	if (world.is_null()) {
+		godot::UtilityFunctions::printerr("native_collision.intersect_point: reference node not in world");
+		return 0;
+	}
+
+	godot::PhysicsDirectSpaceState3D *space_state = world->get_direct_space_state();
+	if (!space_state) {
+		godot::UtilityFunctions::printerr("native_collision.intersect_point: failed to get space state");
+		return 0;
+	}
+
+	cached_point_params->set_position(position);
+	cached_point_params->set_collision_mask(collision_mask);
+
+	godot::TypedArray<godot::Dictionary> results = space_state->intersect_point(cached_point_params);
+
+	for (int i = 0; i < results.size(); i++) {
+		godot::Dictionary result = results[i];
+		uint64_t target_id = (uint64_t)result["collider_id"];
+
+		lua_pushvalue(p_L, 6);
+		lua_pushinteger(p_L, target_id);
+
+		const int call_result = LuaRuntime::pcall(
+				p_L,
+				1,
+				1,
+				"native_collision: callback error");
+		if (call_result != LUA_OK) {
+			lua_pop(p_L, 1);
+			return 0;
+		}
+
+		if (lua_isboolean(p_L, -1) && !lua_toboolean(p_L, -1)) {
+			lua_pop(p_L, 1);
+			return 0;
+		}
+		lua_pop(p_L, 1);
+	}
+
+	return 0;
+}
+
 // intersect_hitbox(node_id, collision_mask, callback) -> void
 // 对指定节点或其子节点中的AttackHitbox3D执行碰撞检测
 // 如果node_id本身是AttackHitbox3D，直接处理
@@ -877,6 +957,7 @@ static const luaL_Reg collision_funcs[] = {
 	{"intersect_cylinder", l_intersect_cylinder},
 	{"intersect_box", l_intersect_box},
 	{"intersect_ray", l_intersect_ray},
+	{"intersect_point", l_intersect_point},
 	{"set_trigger_callback", l_set_trigger_callback},
 	{"set_trigger_size", l_set_trigger_size},
 	{nullptr, nullptr}
@@ -893,6 +974,7 @@ void collision_cleanup() {
 	cached_box_shape.unref();
 	cached_query_params.unref();
 	cached_ray_params.unref();
+	cached_point_params.unref();
 }
 
 void collision_register_signal_receivers() {
